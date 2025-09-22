@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -40,28 +41,39 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 				(GUIStyle)"AM HeaderStyle");
 		}
 
-		public override void DrawKeyRow() {
-			var props = m_settings.CurrentProperty.Select(prop => prop.name).ToArray();
+                public override void DrawKeyRow() {
+                        var props = m_settings.CurrentProperty.Select(prop => prop.name).ToArray();
 
-			using (new EditorGUILayout.HorizontalScope()) {
-				m_useKeyProperty = EditorGUILayout.ToggleLeft($"キー列でグループ化", m_useKeyProperty);
+                        // 保存済み設定があればUI状態へ反映
+                        if (!string.IsNullOrEmpty(m_settings.KeyId)) {
+                                var idIndex = Array.FindIndex(m_settings.CurrentProperty, prop => prop.id == m_settings.KeyId);
 
-				using (new EditorGUI.DisabledScope(!m_useKeyProperty)) {
-					m_propertyIndex = EditorGUILayout.Popup(m_propertyIndex, props);
-				}
-			}
+                                if (idIndex >= 0) {
+                                        m_useKeyProperty = true;
+                                        m_propertyIndex = idIndex;
+                                }
+                        }
 
-			if (m_useKeyProperty) {
-				m_settings.KeyId = m_settings.CurrentProperty.FirstOrDefault(prop => prop.name == props[m_propertyIndex])?.id;
-			} else {
-				m_settings.KeyId = null;
-			}
+                        using (new EditorGUILayout.HorizontalScope()) {
+                                m_useKeyProperty = EditorGUILayout.ToggleLeft($"キー列でグループ化", m_useKeyProperty);
 
-			m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
+                                using (new EditorGUI.DisabledScope(!m_useKeyProperty)) {
+                                        m_propertyIndex = EditorGUILayout.Popup(m_propertyIndex, props);
+                                }
+                        }
 
-			GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
-			EditorGUILayout.Space();
-		}
+                        if (m_useKeyProperty) {
+                                m_settings.KeyId = m_settings.CurrentProperty
+                                        .ElementAtOrDefault(m_propertyIndex)?.id;
+                        } else {
+                                m_settings.KeyId = null;
+                        }
+
+                        m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
+
+                        GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
+                        EditorGUILayout.Space();
+                }
 
 		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
 			//ノーションのデータベースに変数にマッチするフィールドが存在するか？
