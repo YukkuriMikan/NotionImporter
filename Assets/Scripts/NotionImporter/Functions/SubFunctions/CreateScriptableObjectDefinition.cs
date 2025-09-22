@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
 using NotionImporter.Functions.SubFunction.ScriptableObjects;
 using UnityEditor;
@@ -90,66 +91,193 @@ namespace NotionImporter.Functions.SubFunction {
 			Debug.Log("インポート定義を作成しました");
 		}
 
-		public void ReadFile(NotionImporterSettings settings, string json) {
-			m_settings = settings;
-			var def = JsonUtility.FromJson<ScriptableObjectImportDefinition>(json);
+                public void ReadFile(NotionImporterSettings settings, string json) {
+                        m_settings = settings;
 
-			var db = m_settings.objects.FirstOrDefault(obj => obj.id == def.targetDb.id);
+                        var definition = JsonUtility.FromJson<ScriptableObjectImportDefinition>(json);
 
-			if (db == null) {
-				EditorUtility.DisplayDialog("エラー", "定義ファイルに指定されているデータベースが存在しませんでした", "OK");
+                        if (definition == null) {
+                                EditorUtility.DisplayDialog("エラー", "定義ファイルの解析に失敗しました", "OK");
 
-				return;
-			}
+                                return;
+                        }
 
-			m_settings.CurrentObjectId = db.id.GetHashCode();
-			ParentFunction.NotionTree.SetSelection(new List<int> { db.id.GetHashCode() });
+                        var db = m_settings.objects.FirstOrDefault(obj => obj.id == definition.targetDb.id);
 
-			m_settings.DefinitionName = def.definitionName;
-			m_settings.OutputPath = def.outputPath;
+                        if (db == null) {
+                                EditorUtility.DisplayDialog("エラー", "定義ファイルに指定されているデータベースが存在しませんでした", "OK");
 
-			m_mappingFunction.MappingMode = def.mappingMode;
-			m_settings.KeyId = def.keyProperty;
-			m_settings.UseKeyFiltering = def.useKeyFiltering;
+                                return;
+                        }
 
-			var targetType = Type.GetType(def.targetScriptableObject);
-			var targetTypeItem = new TypeItem {
-				typeName = targetType.Name,
-				typeFullName = targetType.FullName,
-				assemblyName = targetType.Assembly.GetName().Name,
-			};
-			var typeIndex = m_typePaneFunction.MappingTargetTypes.Select((itm, index) => (itm, index)).FirstOrDefault(pair => pair.itm.targetType == targetType).index;
+                        // データベース選択と基本設定の復元
+                        m_settings.CurrentObjectId = db.id.GetHashCode();
+                        ParentFunction.NotionTree.SetSelection(new List<int> { db.id.GetHashCode() });
 
-			if (typeIndex < 0) {
-				EditorUtility.DisplayDialog("エラー", "定義ファイルの処理対象の型が見つかりませんでした", "OK");
+                        m_settings.DefinitionName = definition.definitionName;
+                        m_settings.OutputPath = definition.outputPath;
+                        m_settings.KeyId = definition.keyProperty;
+                        m_settings.UseKeyFiltering = definition.useKeyFiltering;
 
-				return;
-			}
+                        // 型リストを確実に初期化
+                        m_typePaneFunction.EnsureTypeList(m_settings);
 
-			m_typePaneFunction.SelectedTypeIndex = typeIndex;
+                        var typeItems = m_typePaneFunction.MappingTargetTypes ?? Array.Empty<TypeItem>();
+                        var typeIndex = Array.FindIndex(typeItems, itm => itm.typeString == definition.targetScriptableObject);
 
-			m_mappingFunction.CurrentMappingMethod.Initialize(m_settings, targetTypeItem);
+                        if (typeIndex < 0) {
+                                EditorUtility.DisplayDialog("エラー", "定義ファイルの処理対象の型が見つかりませんでした", "OK");
 
-			var methodTarget = new MappingItem();
+                                return;
+                        }
 
-			methodTarget.doMaching = true;
+                        var targetTypeItem = typeItems[typeIndex];
+                        m_typePaneFunction.SelectedTypeIndex = typeIndex;
 
-			switch (def.mappingMode) {
-				case MappingMode.Array:
-					methodTarget.isArray = true;
+                        // 内部状態を復元してUIの再初期化を抑止
+                        m_mappingFunction.m_targetType = targetTypeItem;
+                        m_mappingFunction.m_currentObject = m_settings.CurrentObject;
+                        m_mappingFunction.MappingMode = definition.mappingMode;
 
-					break;
-				case MappingMode.List:
-					methodTarget.isList = true;
+                        if (definition.mappingMode == MappingMode.Array || definition.mappingMode == MappingMode.List) {
+                                if (!ApplyCollectionTarget(definition, targetTypeItem)) {
+                                        return;
+                                }
+                        } else {
+                                // 通常マッピングは対象型をそのまま初期化
+                                m_mappingFunction.CurrentMappingMethod.Initialize(m_settings, targetTypeItem);
+                        }
 
-					break;
-			}
+                        ApplyMappingData(definition.mappingData);
+                }
 
-			methodTarget.fieldName = def.targetFieldName;
+                /// <summary> 配列/リストマッピング設定を復元する </summary>
+                private bool ApplyCollectionTarget(ScriptableObjectImportDefinition definition, TypeItem rootTypeItem) {
+                        var scriptableType = rootTypeItem.targetType;
 
-			m_mappingFunction.CurrentMappingMethod.MethodTarget = methodTarget;
-			m_mappingFunction.m_targetType = targetTypeItem;
-		}
+                        if (scriptableType == null) {
+                                EditorUtility.DisplayDialog("エラー", "対象のスクリプタブルオブジェクト型を取得出来ませんでした", "OK");
+
+                                return false;
+                        }
+
+                        if (string.IsNullOrEmpty(definition.targetFieldName)) {
+                                EditorUtility.DisplayDialog("エラー", "配列/リストの対象フィールド名が取得出来ませんでした", "OK");
+
+                                return false;
+                        }
+
+                        var fieldInfo = FindFieldRecursive(scriptableType, definition.targetFieldName);
+
+                        if (fieldInfo == null) {
+                                EditorUtility.DisplayDialog("エラー", "定義ファイルに記載されたフィールドが見つかりませんでした", "OK");
+
+                                return false;
+                        }
+
+                        var methodTarget = new MappingItem {
+                                doMaching = true,
+                                fieldName = fieldInfo.Name,
+                                fieldInfo = fieldInfo,
+                                fieldType = fieldInfo.FieldType,
+                                isArray = definition.mappingMode == MappingMode.Array,
+                                isList = definition.mappingMode == MappingMode.List,
+                        };
+
+                        m_mappingFunction.CurrentMappingMethod.MethodTarget = methodTarget;
+
+                        var elementType = GetCollectionElementType(fieldInfo.FieldType);
+
+                        if (elementType == null) {
+                                EditorUtility.DisplayDialog("エラー", "コレクションの要素型を特定出来ませんでした", "OK");
+
+                                return false;
+                        }
+
+                        var elementTypeItem = CreateTypeItem(elementType);
+
+                        m_mappingFunction.CurrentMappingMethod.Initialize(m_settings, elementTypeItem);
+
+                        return true;
+                }
+
+                /// <summary> マッピング設定を復元する </summary>
+                private void ApplyMappingData(MappingData[] mappingDataArray) {
+                        var mappingItems = m_mappingFunction.CurrentMappingMethod.MethodMappingItems;
+
+                        if (mappingItems == null) {
+                                return;
+                        }
+
+                        var lookup = (mappingDataArray ?? Array.Empty<MappingData>())
+                                .ToDictionary(data => data.targetFieldName, data => data);
+
+                        foreach (var item in mappingItems) {
+                                if (!lookup.TryGetValue(item.fieldName, out var data)) {
+                                        item.doMaching = false;
+                                        continue;
+                                }
+
+                                var propertyIndex = Array.FindIndex(item.targetProperties, prop => prop.id == data.targetPropertyId);
+
+                                if (propertyIndex < 0) {
+                                        item.doMaching = false;
+                                        Debug.LogWarning($"NotionImporter: {item.fieldName} に対応するNotionプロパティが見つかりませんでした");
+
+                                        continue;
+                                }
+
+                                item.doMaching = true;
+                                item.propertyIndex = propertyIndex;
+                        }
+                }
+
+                /// <summary> 指定したフィールドを継承階層から探索する </summary>
+                private static FieldInfo FindFieldRecursive(Type type, string fieldName) {
+                        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+                        while (type != null) {
+                                var field = type.GetField(fieldName, Flags);
+
+                                if (field != null) {
+                                        return field;
+                                }
+
+                                type = type.BaseType;
+                        }
+
+                        return null;
+                }
+
+                /// <summary> 配列/リストの要素型を取得する </summary>
+                private static Type GetCollectionElementType(Type collectionType) {
+                        if (collectionType == null) {
+                                return null;
+                        }
+
+                        if (collectionType.IsArray) {
+                                return collectionType.GetElementType();
+                        }
+
+                        if (collectionType.IsGenericType && collectionType.GetGenericArguments().Length == 1) {
+                                return collectionType.GetGenericArguments()[0];
+                        }
+
+                        return null;
+                }
+
+                /// <summary> 指定型からTypeItemを生成 </summary>
+                private static TypeItem CreateTypeItem(Type type) {
+                        if (type == null) {
+                                return null;
+                        }
+
+                        return new TypeItem {
+                                typeName = type.Name,
+                                typeFullName = type.FullName,
+                                assemblyName = type.Assembly.GetName().Name,
+                        };
+                }
 
 	}
 

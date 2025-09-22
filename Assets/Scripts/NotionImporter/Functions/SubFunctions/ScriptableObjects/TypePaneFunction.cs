@@ -16,11 +16,22 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 		/// <summary> マッピング対象の型情報配列 </summary>
 		private TypeItem[] m_mappingTargetTypes;
 
-		public TypeItem[] MappingTargetTypes {
-			get {
-				return m_mappingTargetTypes;
-			}
-		}
+                public TypeItem[] MappingTargetTypes {
+                        get {
+                                return m_mappingTargetTypes;
+                        }
+                }
+
+                /// <summary> 読込時に型キャッシュを確実に初期化する </summary>
+                public void EnsureTypeList(NotionImporterSettings settings) {
+                        m_settings = settings; // 最新設定を保持
+
+                        if (m_mappingTargetTypes == null || m_settings.CurrentObject != m_currentDatabase) {
+                                // DB変更時などに型一覧を再生成
+                                m_mappingTargetTypes = GetTypeItems();
+                                m_currentDatabase = m_settings.CurrentObject;
+                        }
+                }
 
 		public TypeItem SelectedMappingTargetTypes {
 			get {
