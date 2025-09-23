@@ -10,52 +10,51 @@ using Debug = UnityEngine.Debug;
 
 namespace NotionImporter {
 
-	public static class NotionApi {
+        /// <summary>Notion APIとの通信を担当します。</summary>
+        public static class NotionApi {
 
-		//接続のリトライ回数
-		private const int MAX_RETRY_COUNT = 100;
+                private const int MAX_RETRY_COUNT = 100; // 接続時の最大リトライ回数
 
-		//接続のタイムアウト
-		private const float TIME_OUT = 10f;
+                private const float TIME_OUT = 10f; // 接続のタイムアウト秒数
 
-		private const string NOTION_API_URL = "https://api.notion.com/v1/{0}";
+                private const string NOTION_API_URL = "https://api.notion.com/v1/{0}"; // Notion APIのベースURL
 
-		private static Dictionary<string, string> m_apiCache = new();
+                private static Dictionary<string, string> m_apiCache = new(); // APIレスポンスのキャッシュ
 
-		/// <summary> NotionAPI用にリクエストヘッダ等を構成する </summary>
-		/// <param name="req"></param>
-		/// <param name="json"></param>
-		private static void SetNotionRequestParams(string apiKey, UnityWebRequest req, string json) {
-			if (json != null) {
-				var postBytes = Encoding.UTF8.GetBytes(json);
+                /// <summary>NotionAPI用にリクエストヘッダ等を構成する</summary>
+                /// <param name="req"></param>
+                /// <param name="json"></param>
+                private static void SetNotionRequestParams(string apiKey, UnityWebRequest req, string json) {
+                        if (json != null) { // POSTデータがある場合はアップロードハンドラを設定
+                                var postBytes = Encoding.UTF8.GetBytes(json);
 
-				req.uploadHandler = new UploadHandlerRaw(postBytes);
-			}
+                                req.uploadHandler = new UploadHandlerRaw(postBytes);
+                        }
 
-			req.downloadHandler = new DownloadHandlerBuffer();
+                        req.downloadHandler = new DownloadHandlerBuffer(); // レスポンス受信用ハンドラを設定
 
-			req.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-			req.SetRequestHeader("Notion-Version", "2022-06-28");
-			req.SetRequestHeader("Content-Type", "application/json");
-		}
+                        req.SetRequestHeader("Authorization", $"Bearer {apiKey}"); // 認証情報とバージョン、コンテンツタイプを指定
+                        req.SetRequestHeader("Notion-Version", "2022-06-28");
+                        req.SetRequestHeader("Content-Type", "application/json");
+                }
 
-		/// <summary> NotionAPIにPOSTする </summary>
+                /// <summary>NotionAPIにPOSTする</summary>
 		/// <param name="apiKey">NotionのAPIキー</param>
 		/// <param name="method">呼び出しAPI種別</param>
 		/// <param name="postData">POSTデータ</param>
 		/// <returns>POST結果</returns>
-		public static string PostNotion(string apiKey, string method, string postData = null) {
-			if (m_apiCache.ContainsKey(apiKey + method + postData)) {
-				return m_apiCache[apiKey + method + postData];
-			}
+                public static string PostNotion(string apiKey, string method, string postData = null) {
+                        if (m_apiCache.ContainsKey(apiKey + method + postData)) { // キャッシュが存在すれば再利用
+                                return m_apiCache[apiKey + method + postData];
+                        }
 
 			using var req = UnityWebRequest.PostWwwForm(string.Format(NOTION_API_URL, method), "POST");
 
 			SetNotionRequestParams(apiKey, req, postData);
 
-			try {
-				var task = req.SendWebRequest();
-				var timeOutWatcher = new Stopwatch();
+                        try {
+                                var task = req.SendWebRequest(); // リクエストを送信してタイムアウトを監視
+                                var timeOutWatcher = new Stopwatch();
 
 				timeOutWatcher.Start();
 
@@ -67,9 +66,9 @@ namespace NotionImporter {
 
 				Debug.Log($"Post: {method} succeed.");
 
-				var resultStr = req.downloadHandler.text;
+                                var resultStr = req.downloadHandler.text;
 
-				m_apiCache.TryAdd(apiKey + method + postData, resultStr);
+                                m_apiCache.TryAdd(apiKey + method + postData, resultStr); // レスポンスをキャッシュに保存
 
 				return resultStr;
 			} catch (Exception ex) {
@@ -81,15 +80,15 @@ namespace NotionImporter {
 			}
 		}
 
-		/// <summary> NotionAPIにPOSTする </summary>
+                /// <summary>NotionAPIにPOSTする</summary>
 		/// <param name="apiKey">NotionのAPIキー</param>
 		/// <param name="method">呼び出しAPI種別</param>
 		/// <param name="postData">POSTデータ</param>
 		/// <returns>POST結果</returns>
-		public async static UniTask<string> PostNotionAsync(string apiKey, string method, string postData = null) {
-			if (m_apiCache.ContainsKey(apiKey + method + postData)) {
-				return m_apiCache[apiKey + method + postData];
-			}
+                public async static UniTask<string> PostNotionAsync(string apiKey, string method, string postData = null) {
+                        if (m_apiCache.ContainsKey(apiKey + method + postData)) { // キャッシュを優先的に返す
+                                return m_apiCache[apiKey + method + postData];
+                        }
 
 			var retryCount = 0;
 			UnityWebRequest result = null;
@@ -107,9 +106,9 @@ namespace NotionImporter {
 
 					Debug.Log($"Post: {method} succeed.");
 
-					var resultStr = req.downloadHandler.text;
+                                        var resultStr = req.downloadHandler.text;
 
-					m_apiCache.TryAdd(apiKey + method + postData, resultStr);
+                                        m_apiCache.TryAdd(apiKey + method + postData, resultStr); // レスポンスをキャッシュに保存
 
 					return resultStr;
 				} catch (Exception ex) {
@@ -121,22 +120,22 @@ namespace NotionImporter {
 			return null;
 		}
 
-		/// <summary> NotionAPIにGetする </summary>
+                /// <summary>NotionAPIにGETする</summary>
 		/// <param name="apiKey">NotionのAPIキー</param>
 		/// <param name="method">呼び出しAPI種別</param>
 		/// <returns>GET結果</returns>
-		public static string GetNotion(string apiKey, string method) {
-			if (m_apiCache.ContainsKey(apiKey + method)) {
-				return m_apiCache[apiKey + method];
-			}
+                public static string GetNotion(string apiKey, string method) {
+                        if (m_apiCache.ContainsKey(apiKey + method)) { // キャッシュ済みの結果を優先的に返す
+                                return m_apiCache[apiKey + method];
+                        }
 
 			using var req = UnityWebRequest.Get(string.Format(NOTION_API_URL, method));
 
 			SetNotionRequestParams(apiKey, req, null);
 
-			try {
-				var task = req.SendWebRequest();
-				var timeOutWatcher = new Stopwatch();
+                        try {
+                                var task = req.SendWebRequest(); // リクエスト送信とタイムアウト監視
+                                var timeOutWatcher = new Stopwatch();
 
 				timeOutWatcher.Start();
 
@@ -146,9 +145,9 @@ namespace NotionImporter {
 					}
 				}
 
-				var resultStr = req.downloadHandler.text;
+                                var resultStr = req.downloadHandler.text;
 
-				m_apiCache.TryAdd(apiKey + method, resultStr);
+                                m_apiCache.TryAdd(apiKey + method, resultStr); // レスポンスをキャッシュに保存
 
 				return resultStr;
 			} catch (Exception ex) {
@@ -160,14 +159,14 @@ namespace NotionImporter {
 			}
 		}
 
-		/// <summary> NotionAPIにGetする </summary>
+                /// <summary>NotionAPIにGETする</summary>
 		/// <param name="apiKey">NotionのAPIキー</param>
 		/// <param name="method">呼び出しAPI種別</param>
 		/// <returns>GET結果</returns>
-		public async static UniTask<string> GetNotionAsync(string apiKey, string method) {
-			if (m_apiCache.ContainsKey(apiKey + method)) {
-				return m_apiCache[apiKey + method];
-			}
+                public async static UniTask<string> GetNotionAsync(string apiKey, string method) {
+                        if (m_apiCache.ContainsKey(apiKey + method)) { // キャッシュ済みレスポンスを利用
+                                return m_apiCache[apiKey + method];
+                        }
 
 			var retryCount = 0;
 			UnityWebRequest result = null;
@@ -185,9 +184,9 @@ namespace NotionImporter {
 
 					Debug.Log($"Get: {method} succeed.");
 
-					var resultStr = result.downloadHandler.text;
+                                        var resultStr = result.downloadHandler.text;
 
-					m_apiCache.TryAdd(apiKey + method, resultStr);
+                                        m_apiCache.TryAdd(apiKey + method, resultStr); // レスポンスをキャッシュ
 
 					return result.downloadHandler.text;
 				} catch (Exception ex) {
@@ -202,19 +201,21 @@ namespace NotionImporter {
 			return null;
 		}
 
-		/// <summary> search結果はエラーか？ </summary>
-		/// <param name="json">対象のJSON</param>
-		/// <returns>検索結果の有無(True=エラー、結果無し、False=結果あり)</returns>
-		public static bool IsSearchError(string json) {
-			//エラー時のJSON
-			//{"object":"error","status":404,"code":"object_not_found","message":"Could not find page with ID: 08c1542c-46fa-4296-886f-288c3c68a5b1. Make sure the relevant pages and databases are shared with your integration."}
+                /// <summary>search結果がエラーかどうかを判定する</summary>
+                /// <param name="json">対象のJSON</param>
+                /// <returns>検索結果の有無(True=エラー、結果無し、False=結果あり)</returns>
+                public static bool IsSearchError(string json) {
+                        /* エラー時のJSON
+                         * {"object":"error","status":404,"code":"object_not_found","message":"Could not find page with ID: 08c1542c-46fa-4296-886f-288c3c68a5b1. Make sure the relevant pages and databases are shared with your integration."}
+                         */
 
-			return json.Contains("object_not_found") || json.Contains("gateway error");
-		}
+                        return json.Contains("object_not_found") || json.Contains("gateway error"); // エラーメッセージが含まれている場合は失敗扱い
+                }
 
-		public static void ClearCache() {
-			m_apiCache.Clear();
-		}
+                /// <summary>APIレスポンスのキャッシュを削除します。</summary>
+                public static void ClearCache() {
+                        m_apiCache.Clear(); // キャッシュを初期化
+                }
 
 	}
 

@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public class ListMapping : ArrayMapping {
+        /// <summary>リストフィールドへのマッピング処理を提供します。</summary>
+        public class ListMapping : ArrayMapping {
 
 		public override void DrawPaneHeader() {
 			GUILayout.Label("リストマッピング設定", "ProfilerHeaderLabel");

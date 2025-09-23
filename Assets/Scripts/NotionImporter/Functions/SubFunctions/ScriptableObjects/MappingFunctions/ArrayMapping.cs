@@ -5,11 +5,12 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public class ArrayMapping : MappingMethodBase {
+        /// <summary>配列フィールドへのマッピング処理を提供します。</summary>
+        public class ArrayMapping : MappingMethodBase {
 
-		private bool m_useKeyProperty;
+                private bool m_useKeyProperty; // キー列を利用するかどうか
 
-		private int m_propertyIndex;
+                private int m_propertyIndex; // 選択中のプロパティインデックス
 
 		public override TypeItem MethodTargetType {
 			get {
@@ -31,21 +32,20 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 			}
 		}
 
-		public override void DrawPaneHeader() {
-			GUILayout.Label("配列マッピング設定", "ProfilerHeaderLabel");
-		}
+                public override void DrawPaneHeader() {
+                        GUILayout.Label("配列マッピング設定", "ProfilerHeaderLabel");
+                }
 
-		public override void DrawTargetType() {
+                public override void DrawTargetType() {
 			EditorGUILayout.LabelField(
 				$"{MethodTarget.fieldName}:{MethodTarget.fieldInfo.FieldType.Name}",
 				(GUIStyle)"AM HeaderStyle");
 		}
 
                 public override void DrawKeyRow() {
-                        var props = m_settings.CurrentProperty.Select(prop => prop.name).ToArray();
+                        var props = m_settings.CurrentProperty.Select(prop => prop.name).ToArray(); // キー列の選択UIを構築
 
-                        // 保存済み設定があればUI状態へ反映
-                        if (!string.IsNullOrEmpty(m_settings.KeyId)) {
+                        if (!string.IsNullOrEmpty(m_settings.KeyId)) { // 保存済み設定があればUI状態へ反映
                                 var idIndex = Array.FindIndex(m_settings.CurrentProperty, prop => prop.id == m_settings.KeyId);
 
                                 if (idIndex >= 0) {
@@ -75,9 +75,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
                         EditorGUILayout.Space();
                 }
 
-		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
-			//ノーションのデータベースに変数にマッチするフィールドが存在するか？
-			var selectableNotionFieldsNothing = itm.targetProperties.Length == 0;
+                public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
+                        var selectableNotionFieldsNothing = itm.targetProperties.Length == 0; // 配列向けのマッピング行を描画する際に、Notion側に一致フィールドがあるか確認
 			var isUnsupportedArray = (itm.fieldType != typeof(string[]) && (itm.isArray || itm.isList));
 			var isDisableRow = selectableNotionFieldsNothing || isUnsupportedArray;
 

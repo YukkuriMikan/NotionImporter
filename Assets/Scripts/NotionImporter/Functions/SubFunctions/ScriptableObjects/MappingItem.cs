@@ -3,21 +3,21 @@ using System.Reflection;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	/// <summary> 型マッピング用クラス </summary>
-	public class MappingItem {
+        /// <summary>型マッピングに使用する情報を保持します。</summary>
+        public class MappingItem {
 
-		public bool doMaching = true;
-		public bool isArray = false;
-		public bool isList = false;
-		public string fieldName;
-		public Type fieldType;
-		public FieldInfo fieldInfo;
-		public FieldInfo[] innerFieldInfo;
+                public bool doMaching = true; // マッピング対象かどうか
+                public bool isArray = false; // 配列を対象とするか
+                public bool isList = false; // リストを対象とするか
+                public string fieldName; // 対象フィールド名
+                public Type fieldType; // フィールドの型
+                public FieldInfo fieldInfo; // フィールド情報
+                public FieldInfo[] innerFieldInfo; // ネストされたフィールド情報
 
-		public NotionProperty[] targetProperties;
+                public NotionProperty[] targetProperties; // 対象のNotionプロパティ一覧
 
-		public int propertyIndex;
+                public int propertyIndex; // 選択されているプロパティインデックス
 
-	}
+        }
 
 }

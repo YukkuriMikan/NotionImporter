@@ -5,35 +5,42 @@ using UnityEngine;
 
 namespace NotionImporter {
 
-	public class NotionTree : TreeView {
+        /// <summary>NotionオブジェクトをTreeViewで表示します。</summary>
+        public class NotionTree : TreeView {
 
-		private NotionObject[] m_notionObjects;
+                private NotionObject[] m_notionObjects; // 表示対象のNotionオブジェクト一覧
 
-		public NotionObject this[string id] {
-			get {
-				return m_notionObjects.FirstOrDefault(obj => obj.id == id);
-			}
-		}
+                /// <summary>NotionオブジェクトをIDで取得します。</summary>
+                public NotionObject this[string id] {
+                        get {
+                                return m_notionObjects.FirstOrDefault(obj => obj.id == id); // IDが一致するオブジェクトを返す
+                        }
+                }
 
-		public NotionObject this[int hashId] {
-			get {
-				return m_notionObjects.FirstOrDefault(obj => obj.id.GetHashCode() == hashId);
-			}
-		}
+                /// <summary>NotionオブジェクトをハッシュIDで取得します。</summary>
+                public NotionObject this[int hashId] {
+                        get {
+                                return m_notionObjects.FirstOrDefault(obj => obj.id.GetHashCode() == hashId); // ハッシュ値で一致するオブジェクトを返す
+                        }
+                }
 
-		public NotionTree(TreeViewState state) : base(state) { }
+                /// <summary>シンプルなヘッダー構成で初期化します。</summary>
+                public NotionTree(TreeViewState state) : base(state) { }
 
-		public NotionTree(TreeViewState state, MultiColumnHeader multiColumnHeader) : base(state, multiColumnHeader) { }
+                /// <summary>複数列ヘッダー付きで初期化します。</summary>
+                public NotionTree(TreeViewState state, MultiColumnHeader multiColumnHeader) : base(state, multiColumnHeader) { }
 
-		public void Initialize(NotionObject[] objects) {
-			m_notionObjects = objects;
+                /// <summary>TreeViewに表示するデータを設定します。</summary>
+                public void Initialize(NotionObject[] objects) {
+                        m_notionObjects = objects; // 外部から渡されたオブジェクトを保持
 
-			Reload();
-		}
+                        Reload();
+                }
 
-		protected override TreeViewItem BuildRoot() {
-			var treeRoot = new TreeViewItem(id: 0, depth: -1, displayName: "Notionオブジェクト");
-			var rootObjs = m_notionObjects.Where(obj => obj.parent == null);
+                /// <summary>ルートノードを生成します。</summary>
+                protected override TreeViewItem BuildRoot() {
+                        var treeRoot = new TreeViewItem(id: 0, depth: -1, displayName: "Notionオブジェクト");
+                        var rootObjs = m_notionObjects.Where(obj => obj.parent == null);
 
 			foreach (var obj in rootObjs) {
 				var rootItem = CreateTreeViewItem(obj);
@@ -45,29 +52,32 @@ namespace NotionImporter {
 
 			SetupDepthsFromParentsAndChildren(treeRoot);
 
-			return treeRoot;
+                        return treeRoot;
 
-		}
+                }
 
-		private void AddChildrenRecursive(NotionObject parentObj, TreeViewItem parentItem) {
-			var children = m_notionObjects.Where(obj => obj.parent?.Id == parentObj.id);
+                /// <summary>子ノードを再帰的に追加します。</summary>
+                private void AddChildrenRecursive(NotionObject parentObj, TreeViewItem parentItem) {
+                        var children = m_notionObjects.Where(obj => obj.parent?.Id == parentObj.id);
 
 			foreach (var child in children) {
 				var childItem = CreateTreeViewItem(child);
 				parentItem.AddChild(childItem);
 
 				AddChildrenRecursive(child, childItem);
-			}
-		}
+                        }
+                }
 
-		private TreeViewItem CreateTreeViewItem(NotionObject obj) => new() { id = obj.id.GetHashCode(), displayName = obj.MainTitle };
+                /// <summary>NotionオブジェクトをTreeViewItemに変換します。</summary>
+                private TreeViewItem CreateTreeViewItem(NotionObject obj) => new() { id = obj.id.GetHashCode(), displayName = obj.MainTitle }; // オブジェクトIDをハッシュ化してツリー項目を生成
 
 
-		protected override void RowGUI(RowGUIArgs args) {
-			var elementWidth = 16f;
-			var padding = 2f;
-			var containerTex = EditorGUIUtility.Load("d_FolderOpened Icon") as Texture2D;
-			var databaseTex = EditorGUIUtility.Load("PreviewPackageInUse") as Texture2D;
+                /// <summary>各行の描画をカスタマイズします。</summary>
+                protected override void RowGUI(RowGUIArgs args) {
+                        var elementWidth = 16f;
+                        var padding = 2f;
+                        var containerTex = EditorGUIUtility.Load("d_FolderOpened Icon") as Texture2D;
+                        var databaseTex = EditorGUIUtility.Load("PreviewPackageInUse") as Texture2D;
 			var toggleRect = args.rowRect;
 			toggleRect.x += GetContentIndent(args.item); // 描画位置はこのように取得
 			toggleRect.width = elementWidth;
@@ -89,9 +99,9 @@ namespace NotionImporter {
 				args.selected = EditorGUI.ToggleLeft(toggleRect, "", args.selected);
 			}
 
-			extraSpaceBeforeIconAndLabel = elementWidth * 2 + padding; // アイコンを表示した分ラベルをの開始位置をずらす
+                        extraSpaceBeforeIconAndLabel = elementWidth * 2 + padding; // アイコンを表示した分ラベルをの開始位置をずらす
 
-			base.RowGUI(args);
-		}
-	}
+                        base.RowGUI(args);
+                }
+        }
 }

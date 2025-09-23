@@ -5,14 +5,15 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public abstract class MappingMethodBase {
+        /// <summary>ScriptableObjectのマッピング処理の基本クラスです。</summary>
+        public abstract class MappingMethodBase {
 
-		protected NotionImporterSettings m_settings;
+                protected NotionImporterSettings m_settings; // 利用中のインポート設定
 
-		/// <summary> メソッドが必要とするターゲットアイテム </summary>
-		public virtual MappingItem MethodTarget { get; set; }
+                /// <summary>メソッドが必要とするターゲットアイテム</summary>
+                public virtual MappingItem MethodTarget { get; set; }
 
-		public virtual TypeItem MethodTargetType {
+                public virtual TypeItem MethodTargetType {
 			get {
 				return new TypeItem {
 					typeName = MethodTarget?.fieldInfo.FieldType.Name,
@@ -28,7 +29,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 			}
 		}
 
-		public MappingItem[] MethodMappingItems { get; set; }
+                /// <summary>マッピング対象となるフィールド情報</summary>
+                public MappingItem[] MethodMappingItems { get; set; }
 
 		public abstract void DrawPaneHeader();
 
@@ -51,15 +53,13 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 		/// <summary> マッピングアイテムクラスを取得 </summary>
 		/// <param name="settings">Notion接続設定</param>
 		/// <param name="targetTypeItem">マッピング対象の型</param>
-		public void Initialize(NotionImporterSettings settings, TypeItem targetTypeItem) {
-			m_settings = settings;
+                public void Initialize(NotionImporterSettings settings, TypeItem targetTypeItem) {
+                        m_settings = settings; // Notion設定と対象型を基に候補を生成
 
-			//リフレクションで対象スクリプタブルオブジェクトが持つフィールドを列挙する
-			MethodMappingItems = targetTypeItem
+			MethodMappingItems = targetTypeItem // リフレクションで対象スクリプタブルオブジェクトが持つフィールドを列挙する
 				.targetType
 				.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-				//自動実装プロパティの自動生成フィールドを弾く
-				.Where(fld => !fld.Name.StartsWith("<"))
+				.Where(fld => !fld.Name.StartsWith("<")) // 自動実装プロパティの自動生成フィールドを弾く
 				.Select(fld =>
 					new MappingItem {
 						fieldName = fld.Name,
@@ -78,8 +78,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 		/// <summary> マッピングのターゲットとなるフィールドの取得 </summary>
 		/// <param name="type">対象の型オブジェクト</param>
 		/// <returns>対象のマッピングフィールド</returns>
-		private NotionProperty[] GetMappingTargetProperty(Type type) {
-			switch (type) {
+                private NotionProperty[] GetMappingTargetProperty(Type type) {
+                        switch (type) { // フィールド型に対応したNotionプロパティを抽出
 				case Type t1 when t1 == typeof(string): //文字列
 					return m_settings.CurrentProperty;
 
@@ -135,8 +135,7 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 						.Where(prop => prop.type == DbPropertyType.files)
 						.ToArray();
 
-				//stringの配列のみ、対応可能
-				case Type t when t == typeof(string[]):
+				case Type t when t == typeof(string[]): // stringの配列のみ、対応可能
 					return m_settings.CurrentProperty
 						.Where(prop => prop.type == DbPropertyType.relation || prop.type == DbPropertyType.multi_select)
 						.ToArray();
