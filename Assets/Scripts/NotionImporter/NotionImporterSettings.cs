@@ -68,59 +68,64 @@ namespace NotionImporter {
 
                 /// <summary>Notionから最新のデータベース情報を取得します。</summary>
                 public void RefreshDatabaseInfo() {
-			var searchQuery = JsonUtility.ToJson(new SearchQuery()); // Notion APIを呼び出して内部状態を更新
+                        try {
+                                var searchQuery = JsonUtility.ToJson(new SearchQuery()); // Notion APIを呼び出して内部状態を更新
 
-			m_dbSearchResultRawJson = NotionApi.PostNotion(apiKey, "search", searchQuery); // 1) データベース一覧を検索（検索APIはページ等も返す）
+                                m_dbSearchResultRawJson = NotionApi.PostNotion(apiKey, "search", searchQuery); // 1) データベース一覧を検索（検索APIはページ等も返す）
 
-			if (string.IsNullOrWhiteSpace(m_dbSearchResultRawJson)) {
-				connectionSucceed = false; // 通信/認証エラーなど
-				return;
-			}
+                                if (string.IsNullOrWhiteSpace(m_dbSearchResultRawJson)) {
+                                        connectionSucceed = false; // 通信/認証エラーなど
+                                        return;
+                                }
 
-			var dbSearchResult = JsonUtility.FromJson<SearchResult>(m_dbSearchResultRawJson);
-			var targetNotionObjects = dbSearchResult.results.ToList();
+                                var dbSearchResult = JsonUtility.FromJson<SearchResult>(m_dbSearchResultRawJson);
+                                var targetNotionObjects = dbSearchResult.results.ToList();
 
-			foreach (var obj in targetNotionObjects) { // 2) データベースのプロパティを抽出・整形
-				obj.objectType = NotionObjectType.Database;
+                                foreach (var obj in targetNotionObjects) { // 2) データベースのプロパティを抽出・整形
+                                        obj.objectType = NotionObjectType.Database;
 
-				GetProperties(obj, m_dbSearchResultRawJson); // 検索APIのレスポンスから、該当DBのプロパティのみを引き当てる
-			}
+                                        GetProperties(obj, m_dbSearchResultRawJson); // 検索APIのレスポンスから、該当DBのプロパティのみを引き当てる
+                                }
 
-			var parentList = targetNotionObjects.ToList(); // 3) データベースの親コンテナ（ページ）を再帰的に収集
+                                var parentList = targetNotionObjects.ToList(); // 3) データベースの親コンテナ（ページ）を再帰的に収集
 
-			while (true) { // 親チェーンを辿り、最上位コンテナまで収集
-				foreach (var parent in parentList.ToArray()) {
-					parentList.Remove(parent);
+                                while (true) { // 親チェーンを辿り、最上位コンテナまで収集
+                                        foreach (var parent in parentList.ToArray()) {
+                                                parentList.Remove(parent);
 
-					if (string.IsNullOrWhiteSpace(parent.parent.page_id)) { // 親IDが無い場合はルート要素と見なし parent を null にする
-						parent.parent = null;
-						continue;
-					}
+                                                if (string.IsNullOrWhiteSpace(parent.parent.page_id)) { // 親IDが無い場合はルート要素と見なし parent を null にする
+                                                        parent.parent = null;
+                                                        continue;
+                                                }
 
-					var resultPageJson = NotionApi.GetNotion(apiKey, $"pages/{parent.parent.page_id}"); // 親ページ情報を取得（見つからない場合はルート扱い）
+                                                var resultPageJson = NotionApi.GetNotion(apiKey, $"pages/{parent.parent.page_id}"); // 親ページ情報を取得（見つからない場合はルート扱い）
 
-					if (!NotionApi.IsSearchError(resultPageJson)) {
-						var page = JsonUtility.FromJson<NotionObject>(resultPageJson);
+                                                if (!NotionApi.IsSearchError(resultPageJson)) {
+                                                        var page = JsonUtility.FromJson<NotionObject>(resultPageJson);
 
-						if (!targetNotionObjects.Any(obj => page.id == obj.id)) { // 未収集の親コンテナだけ追加
-							page.objectType = NotionObjectType.Container;
-							targetNotionObjects.Add(page);
+                                                        if (!targetNotionObjects.Any(obj => page.id == obj.id)) { // 未収集の親コンテナだけ追加
+                                                                page.objectType = NotionObjectType.Container;
+                                                                targetNotionObjects.Add(page);
 
-							GetContainerTitle(page, resultPageJson); // 表示用タイトルを抽出（ページの title プロパティから）
+                                                                GetContainerTitle(page, resultPageJson); // 表示用タイトルを抽出（ページの title プロパティから）
 
-							parentList.Add(page); // さらに上位の親を辿るために探索キューへ
-						}
-					} else {
-						parent.parent = null; // 親を取得できない場合はルート扱いにして探索打ち切り
-					}
-				}
+                                                                parentList.Add(page); // さらに上位の親を辿るために探索キューへ
+                                                        }
+                                                } else {
+                                                        parent.parent = null; // 親を取得できない場合はルート扱いにして探索打ち切り
+                                                }
+                                        }
 
-				if (parentList.Count == 0) break; // 追加の親オブジェクトが一つも見つからない場合は終了
-			}
+                                        if (parentList.Count == 0) break; // 追加の親オブジェクトが一つも見つからない場合は終了
+                                }
 
-			objects = targetNotionObjects.ToArray(); // 4) 検索・収集結果を設定
-			connectionSucceed = true; // 一連の処理が成功
-		}
+                                objects = targetNotionObjects.ToArray(); // 4) 検索・収集結果を設定
+                                connectionSucceed = true; // 一連の処理が成功
+                        } catch (Exception ex) {
+                                connectionSucceed = false; // 失敗した場合は接続失敗扱いにする
+                                throw new InvalidOperationException("Notionのデータベース情報の更新に失敗しました。", ex);
+                        }
+                }
 
                 /// <summary>ページ（コンテナ）のタイトルを抽出し設定します。</summary>
 		private void GetContainerTitle(NotionObject obj, string json) {
@@ -162,27 +167,39 @@ namespace NotionImporter {
 		#region Persistence
                 /// <summary>設定を読み込みます。</summary>
                 public static NotionImporterSettings LoadSetting() {
-			var importerSettings = new NotionImporterSettings(); // 設定ファイルからデータを取得
+                        try {
+                                var importerSettings = new NotionImporterSettings(); // 設定ファイルからデータを取得
 
-			if (File.Exists(NotionImporterParameters.SettingFilePath)) {
-				var json = File.ReadAllText(NotionImporterParameters.SettingFilePath);
+                                if (File.Exists(NotionImporterParameters.SettingFilePath)) {
+                                        var json = File.ReadAllText(NotionImporterParameters.SettingFilePath);
 
-				EditorJsonUtility.FromJsonOverwrite(json, importerSettings); // 既存インスタンスに対して上書き（参照の差し替えを避ける）
-				return importerSettings;
-			}
+                                        EditorJsonUtility.FromJsonOverwrite(json, importerSettings); // 既存インスタンスに対して上書き（参照の差し替えを避ける）
+                                        return importerSettings;
+                                }
 
-			return null; // 設定ファイルが存在しない場合は null
-		}
+                                return null; // 設定ファイルが存在しない場合は null
+                        } catch (Exception ex) {
+                                throw new IOException("設定ファイルの読み込みに失敗しました。", ex);
+                        }
+                }
 
                 /// <summary>設定を保存します。</summary>
                 /// <param name="setting">保存する設定クラス、省略でメンバ変数の設定を保存</param>
                 public static void SaveSetting(NotionImporterSettings setting) {
-			var json = JsonUtility.ToJson(setting); // インポータ設定を書き出し
+                        if (setting == null) {
+                                throw new ArgumentNullException(nameof(setting)); // null引数を明示的に拒否
+                        }
 
-			File.WriteAllText(NotionImporterParameters.SettingFilePath, json); // 設定ファイルへ書き出し
+                        try {
+                                var json = JsonUtility.ToJson(setting); // インポータ設定を書き出し
 
-			AssetDatabase.Refresh(); // Unity エディタにアセット変更を通知
-		}
+                                File.WriteAllText(NotionImporterParameters.SettingFilePath, json); // 設定ファイルへ書き出し
+
+                                AssetDatabase.Refresh(); // Unity エディタにアセット変更を通知
+                        } catch (Exception ex) {
+                                throw new IOException("設定ファイルの保存に失敗しました。", ex);
+                        }
+                }
 		#endregion
 	}
 }
