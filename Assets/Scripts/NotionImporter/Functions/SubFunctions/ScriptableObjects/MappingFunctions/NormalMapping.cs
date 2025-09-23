@@ -4,26 +4,26 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public class NormalMapping : MappingMethodBase {
-		/// <summary> メソッドが必要とするターゲットアイテム </summary>
-		public override MappingItem MethodTarget { get; set; }
+        /// <summary>通常のフィールドへマッピングする処理を提供します。</summary>
+        public class NormalMapping : MappingMethodBase {
+                /// <summary>メソッドが必要とするターゲットアイテム</summary>
+                public override MappingItem MethodTarget { get; set; }
 
-		public override void DrawPaneHeader() {
-			GUILayout.Label("マッピング設定", "ProfilerHeaderLabel");
-		}
+                public override void DrawPaneHeader() {
+                        GUILayout.Label("マッピング設定", "ProfilerHeaderLabel");
+                }
 
 		public override void DrawTargetType() {
 			EditorGUILayout.LabelField("スクリプタブルオブジェクト", (GUIStyle)"AM HeaderStyle");
 		}
 
-		public override void DrawKeyRow() {
-			m_settings.KeyId = null;
-			m_settings.UseKeyFiltering = false;
-		}
+                public override void DrawKeyRow() {
+                        m_settings.KeyId = null; // 通常マッピングではキー設定を初期化
+                        m_settings.UseKeyFiltering = false;
+                }
 
-		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
-			//ノーションのデータベースに変数にマッチするフィールドが存在するか？
-			var selectableNotionFieldsNothing = itm.targetProperties.Length == 0;
+                public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
+                        var selectableNotionFieldsNothing = itm.targetProperties.Length == 0; // 対象フィールドの種類に応じたマッピング可否を判定（Notion側に一致するフィールドがあるか）
 
 			if (itm.isArray) {
 				itm.doMaching = false;

@@ -1,12 +1,13 @@
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public enum MappingMode {
+        /// <summary>ScriptableObjectのマッピングモードを示します。</summary>
+        public enum MappingMode {
 
-		Normal,
-		Array,
-		List,
-		Dictionary,
+                Normal, // 通常のフィールドにマッピング
+                Array, // 配列フィールドにマッピング
+                List, // リストフィールドにマッピング
+                Dictionary, // 辞書フィールドにマッピング
 
-	}
+        }
 
 }

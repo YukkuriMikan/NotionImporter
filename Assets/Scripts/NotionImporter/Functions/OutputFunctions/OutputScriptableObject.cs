@@ -62,10 +62,8 @@ namespace NotionImporter.Functions.Output {
 							foreach (dynamic prop in (object[])props) {
 								var id = prop.Value.id.ToString();
 
-								//キー列設定があるか？
-								if(!string.IsNullOrWhiteSpace(def.keyProperty)) {
-									//キー列と一致してたらセット
-									if(prop.Value.id == def.keyProperty) {
+								if(!string.IsNullOrWhiteSpace(def.keyProperty)) { // キー列設定があるか？
+									if(prop.Value.id == def.keyProperty) { // キー列と一致してたらセット
 										var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value);
 
 										targetTypeList[index] = SetObjectField(targetTypeList[index], "Item1", propValue);
@@ -75,8 +73,7 @@ namespace NotionImporter.Functions.Output {
 								if(prop.Value.id == targetPropId) {
 									var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value);
 
-									//breakするとキーが設定出来ないケースがあるため全部回す
-									SetObjectField(targetTypeList[index].Item2, dat.targetFieldName, propValue.ToString());
+									SetObjectField(targetTypeList[index].Item2, dat.targetFieldName, propValue.ToString()); // breakするとキーが設定出来ないケースがあるため全部回す
 								}
 							}
 						}
@@ -105,8 +102,7 @@ namespace NotionImporter.Functions.Output {
 							break;
 						}
 
-						//キー列設定無し
-						foreach (var groupedItm in targets) {
+						foreach (var groupedItm in targets) { // キー列設定無し
 							if(string.IsNullOrWhiteSpace(groupedItm.Key)) continue;
 
 							if(def.definitionName.Contains("$K")) {
@@ -125,8 +121,7 @@ namespace NotionImporter.Functions.Output {
 					break;
 
 				default:
-					//ページ=Notionの表の行
-					foreach (var page in pages) {
+					foreach (var page in pages) { // ページ=Notionの表の行
 						var resultPageJson = await NotionApi.GetNotionAsync(m_settings.apiKey, $"pages/{page.id}");
 						var props = DynamicJson.Parse(resultPageJson).properties;
 						so = ScriptableObject.CreateInstance(soType);
@@ -147,8 +142,7 @@ namespace NotionImporter.Functions.Output {
 							return;
 						}
 
-						//既存のファイルを探す
-						var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{fileName}.asset",
+						var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{fileName}.asset", // 既存のファイルを探す
 							Type.GetType(def.targetScriptableObject));
 
 						if(existFile != null) {
@@ -193,8 +187,7 @@ namespace NotionImporter.Functions.Output {
 				AssetDatabase.CreateAsset(so, def.outputPath + $"\\{assetName}.asset");
 			}
 
-			//キー列設定あり
-			var arrayType = def.targetFieldType.targetType;
+			var arrayType = def.targetFieldType.targetType; // キー列設定あり
 			var instance = Activator.CreateInstance(arrayType, soValues.Length);
 			var array = instance as Array;
 
@@ -242,8 +235,7 @@ namespace NotionImporter.Functions.Output {
 						break;
 
 					case Type t when t.BaseType == typeof(Enum):
-						//Flags付きのフィールドか確認
-						if(t.CustomAttributes.Any(attr => attr.AttributeType == typeof(FlagsAttribute))) {
+						if(t.CustomAttributes.Any(attr => attr.AttributeType == typeof(FlagsAttribute))) { // Flags付きのフィールドか確認
 							var values = value.Split('\t');
 							int flagsEnumVal = 0;
 

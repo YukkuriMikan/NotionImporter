@@ -29,7 +29,7 @@ namespace Codeplex.Data
             @string, number, boolean, @object, array, @null
         }
 
-        // public static methods
+        /* public static methods */
 
         /// <summary>from JsonSring to DynamicJson</summary>
         public static dynamic Parse(string json)
@@ -70,7 +70,7 @@ namespace Codeplex.Data
             return CreateJsonString(new XStreamingElement("root", CreateTypeAttr(GetJsonType(obj)), CreateJsonNode(obj)));
         }
 
-        // private static methods
+        /* private static methods */
 
         private static dynamic ToValue(XElement element)
         {
@@ -175,7 +175,7 @@ namespace Codeplex.Data
             }
         }
 
-        // dynamic structure represents JavaScript Object/Array
+        /* dynamic structure represents JavaScript Object/Array */
 
         readonly XElement xml;
         readonly JsonType jsonType;
@@ -297,8 +297,7 @@ namespace Codeplex.Data
             }
         }
 
-        // Delete
-        public override bool TryInvoke(InvokeBinder binder, object[] args, out object result)
+        public override bool TryInvoke(InvokeBinder binder, object[] args, out object result) // Delete
         {
             result = (IsArray)
                 ? Delete((int)args[0])
@@ -306,8 +305,7 @@ namespace Codeplex.Data
             return true;
         }
 
-        // IsDefined, if has args then TryGetMember
-        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result) // IsDefined, if has args then TryGetMember
         {
             if (args.Length > 0)
             {
@@ -319,8 +317,7 @@ namespace Codeplex.Data
             return true;
         }
 
-        // Deserialize or foreach(IEnumerable)
-        public override bool TryConvert(ConvertBinder binder, out object result)
+        public override bool TryConvert(ConvertBinder binder, out object result) // Deserialize or foreach(IEnumerable)
         {
             if (binder.Type == typeof(IEnumerable) || binder.Type == typeof(object[]))
             {
@@ -420,8 +417,7 @@ namespace Codeplex.Data
         /// <summary>Serialize to JsonString</summary>
         public override string ToString()
         {
-            // <foo type="null"></foo> is can't serialize. replace to <foo type="null" />
-            foreach (var elem in xml.Descendants().Where(x => x.Attribute("type").Value == "null"))
+            foreach (var elem in xml.Descendants().Where(x => x.Attribute("type").Value == "null")) // <foo type="null"></foo> is can't serialize. replace to <foo type="null" />
             {
                 elem.RemoveNodes();
             }

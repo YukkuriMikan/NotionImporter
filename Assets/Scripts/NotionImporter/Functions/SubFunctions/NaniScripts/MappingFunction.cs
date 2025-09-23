@@ -6,19 +6,22 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.NaniScripts {
 
-	public class MappingFunction {
+        /// <summary>NaniScript用のマッピング設定を管理します。</summary>
+        public class MappingFunction {
 
-		private Dictionary<MappingType, int> m_mappingType = new();
-		public Dictionary<MappingType, int> MappintType {
-			get {
-				return m_mappingType;
-			}
-		}
+                private Dictionary<MappingType, int> m_mappingType = new(); // マッピング種別ごとの選択インデックス
 
-		public void DrawMappingPane(NotionImporterSettings settings) {
-			using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) {
-				//マッピング設定タイトル
-				using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
+                /// <summary>マッピング種別ごとの選択状態</summary>
+                public Dictionary<MappingType, int> MappintType {
+                        get {
+                                return m_mappingType;
+                        }
+                }
+
+                /// <summary>マッピング設定用のペインを描画します。</summary>
+                public void DrawMappingPane(NotionImporterSettings settings) {
+                        using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // 各マッピング種別に対応するNotionプロパティを選択
+                                using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) { // マッピング設定タイトル
 					GUILayout.Label("マッピング設定", "ProfilerHeaderLabel");
 				}
 

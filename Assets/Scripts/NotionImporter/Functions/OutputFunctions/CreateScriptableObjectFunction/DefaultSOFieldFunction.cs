@@ -18,11 +18,10 @@ namespace NotionImporter {
 			var fieldType = field.FieldType;
 
 			try {
-				switch (fieldType) {
-					case Type t when //Parseでいける型全部まとめ
-						t == typeof(byte) ||
-						t == typeof(Char) ||
-						t == typeof(short) ||
+                                switch (fieldType) {
+                                        case Type t when t == typeof(byte) || // Parseで処理可能なプリミティブ型をまとめて処理
+                                                t == typeof(Char) ||
+                                                t == typeof(short) ||
 						t == typeof(ushort) ||
 						t == typeof(int) ||
 						t == typeof(uint) ||
@@ -40,8 +39,7 @@ namespace NotionImporter {
 						break;
 
 					case Type t when t.BaseType == typeof(Enum):
-						//Flags付きのフィールドか確認
-						if (t.CustomAttributes.Any(attr => attr.AttributeType == typeof(FlagsAttribute))) {
+						if (t.CustomAttributes.Any(attr => attr.AttributeType == typeof(FlagsAttribute))) { // Flags付きのフィールドか確認
 							var values       = value.Split(',');
 							int flagsEnumVal = 0;
 

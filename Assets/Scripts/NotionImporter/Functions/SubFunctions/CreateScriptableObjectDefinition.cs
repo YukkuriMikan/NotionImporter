@@ -10,44 +10,43 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction {
 
-	public class CreateScriptableObjectDefinition : ISubFunction {
+        /// <summary>ScriptableObject定義を生成するサブ機能です。</summary>
+        public class CreateScriptableObjectDefinition : ISubFunction {
 
-		public IMainFunction ParentFunction { get; set; }
+                public IMainFunction ParentFunction { get; set; }
 
-		/// <summary> インポート設定 </summary>
-		private NotionImporterSettings m_settings;
+                private NotionImporterSettings m_settings; // インポート設定
 
-		/// <summary> 機能名 </summary>
-		public string FunctionName {
-			get {
-				return "ScriptableObject";
-			}
-		}
+                /// <summary>機能名</summary>
+                public string FunctionName {
+                        get {
+                                return "ScriptableObject";
+                        }
+                }
 
-		/// <summary> 出力するファイルの型 </summary>
-		public Type ExportFileType {
-			get {
-				return typeof(ScriptableObjectImportDefinition);
-			}
-		}
+                /// <summary>出力するファイルの型</summary>
+                public Type ExportFileType {
+                        get {
+                                return typeof(ScriptableObjectImportDefinition);
+                        }
+                }
 
-		private TypePaneFunction m_typePaneFunction = new();
-		private MappingFunction m_mappingFunction = new();
+                private TypePaneFunction m_typePaneFunction = new(); // 型選択ペイン
+                private MappingFunction m_mappingFunction = new(); // マッピング設定管理
 
-		/// <summary> 画面の描画 </summary>
-		/// <param name="settings">インポータの設定</param>
-		public void DrawFunction(NotionImporterSettings settings) {
-			m_settings = settings;
+                /// <summary>画面の描画</summary>
+                /// <param name="settings">インポータの設定</param>
+                public void DrawFunction(NotionImporterSettings settings) {
+                        m_settings = settings; // 現在の設定を保持しつつUIを描画
 
-			//型一覧のペインを描画
-			m_typePaneFunction.DrawTypePane(m_settings);
+			m_typePaneFunction.DrawTypePane(m_settings); // 型一覧のペインを描画
 			m_mappingFunction.DrawMappingPane(m_settings, m_typePaneFunction.SelectedMappingTargetTypes);
 		}
 
-		/// <summary> インポート定義ファイルを生成する </summary>
-		public void CreateFile() {
-			if (string.IsNullOrWhiteSpace(m_settings.OutputPath)) {
-				EditorUtility.DisplayDialog("エラー", "エクスポート先のフォルダを指定して下さい", "OK");
+                /// <summary>インポート定義ファイルを生成する</summary>
+                public void CreateFile() {
+                        if (string.IsNullOrWhiteSpace(m_settings.OutputPath)) { // 出力条件をチェック
+                                EditorUtility.DisplayDialog("エラー", "エクスポート先のフォルダを指定して下さい", "OK");
 
 				return;
 			}
@@ -63,15 +62,13 @@ namespace NotionImporter.Functions.SubFunction {
 										$"\\{nameof(ScriptableObjectImportDefinition)}");
 			}
 
-			//型名のフォルダに定義ファイルを保存
-			var filePath =
-				NotionImporterParameters.DefinitionFilePath +
-				$"\\{nameof(ScriptableObjectImportDefinition)}" +
-				$"\\{m_settings.DefinitionName}.json";
+                        var filePath = NotionImporterParameters.DefinitionFilePath + // 型名のフォルダに定義ファイルを保存
+                                $"\\{nameof(ScriptableObjectImportDefinition)}" +
+                                $"\\{m_settings.DefinitionName}.json";
 
-			var soSetting = new ScriptableObjectImportDefinition {
-				outputPath = m_settings.OutputPath,
-				definitionName = m_settings.DefinitionName,
+                        var soSetting = new ScriptableObjectImportDefinition {
+                                outputPath = m_settings.OutputPath,
+                                definitionName = m_settings.DefinitionName,
 				targetDb = m_settings.CurrentObject,
 				targetScriptableObject = m_typePaneFunction.SelectedMappingTargetTypes.typeString,
 				mappingMode = m_mappingFunction.MappingMode,
@@ -92,7 +89,7 @@ namespace NotionImporter.Functions.SubFunction {
 		}
 
                 public void ReadFile(NotionImporterSettings settings, string json) {
-                        m_settings = settings;
+                        m_settings = settings; // 設定とJSONを受け取り内部状態を復元
 
                         var definition = JsonUtility.FromJson<ScriptableObjectImportDefinition>(json);
 
@@ -110,8 +107,7 @@ namespace NotionImporter.Functions.SubFunction {
                                 return;
                         }
 
-                        // データベース選択と基本設定の復元
-                        m_settings.CurrentObjectId = db.id.GetHashCode();
+                        m_settings.CurrentObjectId = db.id.GetHashCode(); // データベース選択と基本設定の復元
                         ParentFunction.NotionTree.SetSelection(new List<int> { db.id.GetHashCode() });
 
                         m_settings.DefinitionName = definition.definitionName;
@@ -119,8 +115,7 @@ namespace NotionImporter.Functions.SubFunction {
                         m_settings.KeyId = definition.keyProperty;
                         m_settings.UseKeyFiltering = definition.useKeyFiltering;
 
-                        // 型リストを確実に初期化
-                        m_typePaneFunction.EnsureTypeList(m_settings);
+                        m_typePaneFunction.EnsureTypeList(m_settings); // 型リストを確実に初期化
 
                         var typeItems = m_typePaneFunction.MappingTargetTypes ?? Array.Empty<TypeItem>();
                         var typeIndex = Array.FindIndex(typeItems, itm => itm.typeString == definition.targetScriptableObject);
@@ -134,8 +129,7 @@ namespace NotionImporter.Functions.SubFunction {
                         var targetTypeItem = typeItems[typeIndex];
                         m_typePaneFunction.SelectedTypeIndex = typeIndex;
 
-                        // 内部状態を復元してUIの再初期化を抑止
-                        m_mappingFunction.m_targetType = targetTypeItem;
+                        m_mappingFunction.m_targetType = targetTypeItem; // 内部状態を復元してUIの再初期化を抑止
                         m_mappingFunction.m_currentObject = m_settings.CurrentObject;
                         m_mappingFunction.MappingMode = definition.mappingMode;
 
@@ -144,16 +138,15 @@ namespace NotionImporter.Functions.SubFunction {
                                         return;
                                 }
                         } else {
-                                // 通常マッピングは対象型をそのまま初期化
-                                m_mappingFunction.CurrentMappingMethod.Initialize(m_settings, targetTypeItem);
+                                m_mappingFunction.CurrentMappingMethod.Initialize(m_settings, targetTypeItem); // 通常マッピングは対象型をそのまま初期化
                         }
 
                         ApplyMappingData(definition.mappingData);
                 }
 
-                /// <summary> 配列/リストマッピング設定を復元する </summary>
+                /// <summary>配列/リストマッピング設定を復元する</summary>
                 private bool ApplyCollectionTarget(ScriptableObjectImportDefinition definition, TypeItem rootTypeItem) {
-                        var scriptableType = rootTypeItem.targetType;
+                        var scriptableType = rootTypeItem.targetType; // 定義ファイルから配列ターゲットの情報を復元
 
                         if (scriptableType == null) {
                                 EditorUtility.DisplayDialog("エラー", "対象のスクリプタブルオブジェクト型を取得出来ませんでした", "OK");
@@ -201,9 +194,9 @@ namespace NotionImporter.Functions.SubFunction {
                         return true;
                 }
 
-                /// <summary> マッピング設定を復元する </summary>
+                /// <summary>マッピング設定を復元する</summary>
                 private void ApplyMappingData(MappingData[] mappingDataArray) {
-                        var mappingItems = m_mappingFunction.CurrentMappingMethod.MethodMappingItems;
+                        var mappingItems = m_mappingFunction.CurrentMappingMethod.MethodMappingItems; // マッピングデータをフィールド名で参照できるよう辞書化
 
                         if (mappingItems == null) {
                                 return;
@@ -232,7 +225,7 @@ namespace NotionImporter.Functions.SubFunction {
                         }
                 }
 
-                /// <summary> 指定したフィールドを継承階層から探索する </summary>
+                /// <summary>指定したフィールドを継承階層から探索する</summary>
                 private static FieldInfo FindFieldRecursive(Type type, string fieldName) {
                         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
@@ -249,7 +242,7 @@ namespace NotionImporter.Functions.SubFunction {
                         return null;
                 }
 
-                /// <summary> 配列/リストの要素型を取得する </summary>
+                /// <summary>配列/リストの要素型を取得する</summary>
                 private static Type GetCollectionElementType(Type collectionType) {
                         if (collectionType == null) {
                                 return null;
@@ -266,7 +259,7 @@ namespace NotionImporter.Functions.SubFunction {
                         return null;
                 }
 
-                /// <summary> 指定型からTypeItemを生成 </summary>
+                /// <summary>指定型からTypeItemを生成</summary>
                 private static TypeItem CreateTypeItem(Type type) {
                         if (type == null) {
                                 return null;

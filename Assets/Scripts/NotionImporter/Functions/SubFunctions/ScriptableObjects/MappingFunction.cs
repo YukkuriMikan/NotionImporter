@@ -3,41 +3,45 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-	public class MappingFunction {
+        /// <summary>ScriptableObjectのマッピング設定を管理します。</summary>
+        public class MappingFunction {
 
-		private NotionImporterSettings m_settings;
+                private NotionImporterSettings m_settings; // 現在のインポート設定
 
-		private MappingMode m_mappingMode = MappingMode.Normal;
+                private MappingMode m_mappingMode = MappingMode.Normal; // 現在のマッピングモード
 
-		public MappingMode MappingMode {
-			get {
-				return m_mappingMode;
-			}
-			set {
-				m_mappingMode = value;
-			}
-		}
+                /// <summary>選択されているマッピングモード</summary>
+                public MappingMode MappingMode {
+                        get {
+                                return m_mappingMode;
+                        }
+                        set {
+                                m_mappingMode = value;
+                        }
+                }
 
-		private MappingMethodBase[] m_mappingMethods = {
-			new NormalMapping(),
-			new ArrayMapping(),
-			new ListMapping(),
-		};
+                private MappingMethodBase[] m_mappingMethods = { // マッピング処理の実装一覧
+                        new NormalMapping(),
+                        new ArrayMapping(),
+                        new ListMapping(),
+                };
 
-		public MappingMethodBase CurrentMappingMethod {
-			get {
-				return m_mappingMethods[(int)m_mappingMode];
-			}
-		}
+                /// <summary>現在のマッピング方式</summary>
+                public MappingMethodBase CurrentMappingMethod {
+                        get {
+                                return m_mappingMethods[(int)m_mappingMode];
+                        }
+                }
 
-		public TypeItem m_targetType; //マッピング対象の型
+                public TypeItem m_targetType; // マッピング対象の型情報
 
-		public NotionObject m_currentObject; //現在処理中のNotionObject
+                public NotionObject m_currentObject; // 現在処理中のNotionObject
 
-		public void DrawMappingPane(NotionImporterSettings settings, TypeItem targetTypeItem) {
-			m_settings = settings;
+                /// <summary>マッピング設定用のペインを描画します。</summary>
+                public void DrawMappingPane(NotionImporterSettings settings, TypeItem targetTypeItem) {
+                        m_settings = settings; // 設定や対象型が変わった場合は再初期化
 
-			if (m_targetType?.typeFullName != targetTypeItem?.typeFullName || m_currentObject != m_settings.CurrentObject) {
+                        if (m_targetType?.typeFullName != targetTypeItem?.typeFullName || m_currentObject != m_settings.CurrentObject) {
 				m_targetType = targetTypeItem;
 				m_mappingMode = MappingMode.Normal;
 
@@ -47,8 +51,7 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 			}
 
 			using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) {
-				//マッピング設定タイトル
-				using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
+				using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) { // マッピング設定タイトル
 					CurrentMappingMethod.DrawPaneHeader();
 
 					if (GUILayout.Button("全てON", GUILayout.Width(60))) {
@@ -66,20 +69,18 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
 				GUILayout.Space(10);
 
-				//マッピングフィールド描画
-				using (new EditorGUILayout.HorizontalScope()) {
+				using (new EditorGUILayout.HorizontalScope()) { // マッピングフィールド描画
 					DrawMappingItems();
 				}
 			}
 		}
 
-		/// <summary> デシリアライズ先の型のフィールドリストを描画 </summary>
-		private void DrawMappingItems() {
-			using (new EditorGUILayout.VerticalScope()) {
-				CurrentMappingMethod.DrawKeyRow();
+                /// <summary> デシリアライズ先の型のフィールドリストを描画 </summary>
+                private void DrawMappingItems() {
+                        using (new EditorGUILayout.VerticalScope()) { // マッピング対象フィールドの一覧を描画
+                                CurrentMappingMethod.DrawKeyRow();
 
-				//ヘッダ
-				using (new EditorGUILayout.HorizontalScope()) {
+				using (new EditorGUILayout.HorizontalScope()) { // ヘッダ
 					CurrentMappingMethod.DrawTargetType();
 
 					EditorGUILayout.LabelField($"　", GUILayout.Width(20));
@@ -90,8 +91,7 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
 				foreach (var itm in CurrentMappingMethod.MethodMappingItems) {
 					using (new EditorGUILayout.HorizontalScope()) {
-						//インポート可能なプロパティがゼロの場合、マッチング不可
-						if (itm.targetProperties.Length == 0) { }
+						if (itm.targetProperties.Length == 0) { } // インポート可能なプロパティがゼロの場合、マッチング不可
 
 						CurrentMappingMethod.DrawMappingRow(this, itm);
 					}

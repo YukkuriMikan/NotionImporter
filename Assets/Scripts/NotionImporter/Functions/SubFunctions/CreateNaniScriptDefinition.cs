@@ -9,36 +9,38 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction {
 
-	public class CreateNaniScriptDefinition : ISubFunction {
+        /// <summary>NaniScript定義を生成するサブ機能です。</summary>
+        public class CreateNaniScriptDefinition : ISubFunction {
 
-		public IMainFunction ParentFunction { get; set; }
+                public IMainFunction ParentFunction { get; set; }
 
-		/// <summary> インポート設定 </summary>
-		private NotionImporterSettings m_settings;
+                private NotionImporterSettings m_settings; // インポート設定
 
-		public string FunctionName {
-			get {
-				return "NaniScript";
-			}
-		}
+                public string FunctionName {
+                        get {
+                                return "NaniScript";
+                        }
+                }
 
-		public Type ExportFileType {
-			get {
-				return typeof(NaniScriptImportDefinition);
-			}
-		}
+                public Type ExportFileType {
+                        get {
+                                return typeof(NaniScriptImportDefinition);
+                        }
+                }
 
-		private MappingFunction m_mappingFunction = new();
+                private MappingFunction m_mappingFunction = new(); // マッピングの設定情報
 
-		public void DrawFunction(NotionImporterSettings settings) {
-			m_settings = settings;
+                /// <summary>マッピング設定の描画処理を行います。</summary>
+                public void DrawFunction(NotionImporterSettings settings) {
+                        m_settings = settings; // 設定を保持してマッピングUIを描画
 
-			m_mappingFunction.DrawMappingPane(m_settings);
-		}
+                        m_mappingFunction.DrawMappingPane(m_settings);
+                }
 
-		public void CreateFile() {
-			if (string.IsNullOrWhiteSpace(m_settings.OutputPath)) {
-				EditorUtility.DisplayDialog("エラー", "エクスポート先のフォルダを指定して下さい", "OK");
+                /// <summary>NaniScript用の定義ファイルを生成します。</summary>
+                public void CreateFile() {
+                        if (string.IsNullOrWhiteSpace(m_settings.OutputPath)) { // 出力先やファイル名のチェック
+                                EditorUtility.DisplayDialog("エラー", "エクスポート先のフォルダを指定して下さい", "OK");
 
 				return;
 			}
@@ -53,11 +55,9 @@ namespace NotionImporter.Functions.SubFunction {
 				Directory.CreateDirectory(NotionImporterParameters.DefinitionFilePath + $"\\{nameof(NaniScriptImportDefinition)}");
 			}
 
-			//型名のフォルダに定義ファイルを保存
-			var filePath =
-				NotionImporterParameters.DefinitionFilePath +
-				$"\\{nameof(NaniScriptImportDefinition)}" +
-				$"\\{m_settings.DefinitionName}.json";
+                        var filePath = NotionImporterParameters.DefinitionFilePath + // 型名のフォルダに定義ファイルを保存
+                                $"\\{nameof(NaniScriptImportDefinition)}" +
+                                $"\\{m_settings.DefinitionName}.json";
 
 			var soSetting = new NaniScriptImportDefinition {
 				outputPath = m_settings.OutputPath,
@@ -74,12 +74,13 @@ namespace NotionImporter.Functions.SubFunction {
 			AssetDatabase.Refresh();
 
 			ImportMenu.RefreshImportMenu().Forget();
-			Debug.Log("インポート定義を作成しました");
-		}
+                        Debug.Log("インポート定義を作成しました");
+                }
 
-		public void ReadFile(NotionImporterSettings settings, string json) {
-			m_settings = settings;
-			var def = JsonUtility.FromJson<NaniScriptImportDefinition>(json);
+                /// <summary>既存定義ファイルを読み込みます。</summary>
+                public void ReadFile(NotionImporterSettings settings, string json) {
+                        m_settings = settings; // 定義ファイルを読み込み内部状態を復元
+                        var def = JsonUtility.FromJson<NaniScriptImportDefinition>(json);
 
 			var db = m_settings.objects.FirstOrDefault(obj => obj.id == def.targetDb.id);
 

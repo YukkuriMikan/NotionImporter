@@ -2,14 +2,15 @@ using System;
 
 namespace NotionImporter {
 
-	[Serializable]
-	public class MappingData {
+        /// <summary>Notionプロパティとフィールドの対応付け情報を保持します。</summary>
+        [Serializable]
+        public class MappingData {
 
-		public string         targetFieldName;
-		public string         targetPropertyName;
-		public string         targetPropertyId;
-		public DbPropertyType targetPropertyType;
+                public string         targetFieldName; // マッピング先のフィールド名
+                public string         targetPropertyName; // 対応するプロパティ名
+                public string         targetPropertyId; // 対応するプロパティID
+                public DbPropertyType targetPropertyType; // 対応するプロパティの型
 
-	}
+        }
 
 }

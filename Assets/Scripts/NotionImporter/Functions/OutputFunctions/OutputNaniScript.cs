@@ -90,24 +90,21 @@ namespace NotionImporter.Functions.Output {
 				}
 			}
 
-			//追加したテキストファイルの読み込み
-			AssetDatabase.Refresh();
+			AssetDatabase.Refresh(); // 追加したテキストファイルの読み込み
 			Debug.Log($"NotionImporter: {fileName} Imported.");
 
 			#region Naninovelの設定にインポートしたスクリプトを追加
 			var naniScriptResourceGuids = AssetDatabase.FindAssets("t:EditorResources");
 			var importedScriptGuid = AssetDatabase.AssetPathToGUID(naniScriptFullPath);
 
-			//一つしか存在しないはずだけど、一応
-			foreach (var guid in naniScriptResourceGuids) {
+			foreach (var guid in naniScriptResourceGuids) { // 一つしか存在しないはずだけど、一応
 				var path = AssetDatabase.GUIDToAssetPath(guid);
 				var naniScriptResource = AssetDatabase.LoadAssetAtPath<EditorResources>(path);
 				var scriptRecordDic = naniScriptResource.GetAllRecords("Scripts");
 
 				foreach (var pair in scriptRecordDic) {
 					if (pair.Value == importedScriptGuid) {
-						//レコードに既にスクリプトがあるので終了
-						return;
+						return; // レコードに既にスクリプトがあるので終了
 					}
 				}
 

@@ -3,36 +3,31 @@ using NotionImporter.Functions.SubFunction.ScriptableObjects;
 
 namespace NotionImporter {
 
-	[Serializable]
-	public class ScriptableObjectImportDefinition : ImportDefinitionBase {
+        /// <summary>ScriptableObject向けのインポート定義を保持します。</summary>
+        [Serializable]
+        public class ScriptableObjectImportDefinition : ImportDefinitionBase {
 
-		public override string definitionType {
-			get {
-				return "ScriptableObject";
-			}
-		}
+                /// <summary>ScriptableObject用の定義タイプを返します。</summary>
+                public override string definitionType {
+                        get {
+                                return "ScriptableObject"; // 定義タイプの固定文字列を返す
+                        }
+                }
 
-		/// <summary> 対象のスクリプタブルオブジェクトの型文字列 </summary>
-		public string        targetScriptableObject;
+                public string        targetScriptableObject; // 対象となるスクリプタブルオブジェクトの型名
 
-		/// <summary> グループ化するキーのプロパティID </summary>
-		public string keyProperty;
+                public string keyProperty; // グループ化に使用するプロパティID
 
-		/// <summary> インポート時にフィルタリングを行うか？ </summary>
-		public bool useKeyFiltering;
+                public bool useKeyFiltering; // フィルタリングを行うかどうか
 
-		/// <summary> マッピングモード、基本的には配列かどうか </summary>
-		public MappingMode   mappingMode;
+                public MappingMode   mappingMode; // マッピングモード（配列などの種別）
 
-		/// <summary> 配列モード時のターゲットとなる配列型 </summary>
-		public TypeItem      targetFieldType;
+                public TypeItem      targetFieldType; // 配列モード時のターゲット型
 
-		/// <summary> 配列モード時のターゲットとなる配列のフィールド名 </summary>
-		public string        targetFieldName;
+                public string        targetFieldName; // 配列モード時のターゲットフィールド名
 
-		/// <summary> マッピング対象 </summary>
-		public MappingData[] mappingData;
+                public MappingData[] mappingData; // マッピング定義の一覧
 
-	}
+        }
 
 }

@@ -7,18 +7,18 @@ using UnityEngine;
 
 namespace NotionImporter {
 
-	public static class NotionUtils {
+        /// <summary>Notionデータ操作向けのユーティリティを提供します。</summary>
+        public static class NotionUtils {
 
 		/// <summary> プロパティから文字列として値を取り出す </summary>
 		/// <param name="propVal">対象のプロパティ(DynamicJSON前提)</param>
 		/// <returns>文字列の値</returns>
-		public async static UniTask<string> GetStringProperty(NotionImporterSettings settings, dynamic propVal) {
-			var type = Enum.Parse<DbPropertyType>(propVal["type"].ToString());
+                public async static UniTask<string> GetStringProperty(NotionImporterSettings settings, dynamic propVal) {
+                        var type = Enum.Parse<DbPropertyType>(propVal["type"].ToString()); // プロパティ種別ごとに文字列化の方法を切り替える
 
 			switch (type) {
 				case DbPropertyType.rollup:
-					//データ無しの場合
-					if (((object[])propVal.rollup.array).Length == 0) {
+					if (((object[])propVal.rollup.array).Length == 0) { // データ無しの場合
 						return null;
 					}
 
@@ -30,8 +30,7 @@ namespace NotionImporter {
 
 						try {
 							async UniTask GetNotionString(dynamic rel, int index) {
-								//IDからリレーション先のページを取得
-								var resultJson = await NotionApi.GetNotionAsync(settings.apiKey, $"pages/{rel.id.ToString()}");
+								var resultJson = await NotionApi.GetNotionAsync(settings.apiKey, $"pages/{rel.id.ToString()}"); // IDからリレーション先のページを取得
 								var result = DynamicJson.Parse(resultJson);
 
 								foreach (dynamic prop in (object[])result.properties) {
@@ -61,8 +60,7 @@ namespace NotionImporter {
 						return string.Join('\t', titleList);
 					} else {
 						var titleList = new List<string>();
-						//IDからリレーション先のページを取得
-						var resultJson = await NotionApi.GetNotionAsync(settings.apiKey, $"pages/{propVal.relation.id.ToString()}");
+						var resultJson = await NotionApi.GetNotionAsync(settings.apiKey, $"pages/{propVal.relation.id.ToString()}"); // IDからリレーション先のページを取得
 						var result = DynamicJson.Parse(resultJson);
 
 						foreach (dynamic prop in (object[])result.properties) {
@@ -89,8 +87,7 @@ namespace NotionImporter {
 
 				case DbPropertyType.number:
 					if (propVal.number == null) {
-						//Notionだと数字がNullは有り得る、その場合はデフォルト値の0を返す
-						return "0";
+						return "0"; // Notionだと数字がNullは有り得る、その場合はデフォルト値の0を返す
 					}
 
 					return propVal.number.ToString();

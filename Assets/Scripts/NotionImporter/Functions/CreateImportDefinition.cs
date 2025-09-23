@@ -7,76 +7,74 @@ using UnityEngine;
 
 namespace NotionImporter.Functions {
 
-	public class CreateImportDefinition : IMainFunction {
+        /// <summary>インポート定義を作成するメイン機能です。</summary>
+        public class CreateImportDefinition : IMainFunction {
 
-		/// <summary> 親ウィンドウ </summary>
-		private MainImportWindow m_parent;
+                private MainImportWindow m_parent; // 親ウィンドウ
 
-		/// <summary> サブ機能の配列、追加機能がある時は初期化子に追加する </summary>
-		private ISubFunction[] m_subFunctions = {
-			new CreateScriptableObjectDefinition(),
-		};
+                private ISubFunction[] m_subFunctions = { // サブ機能の配列、追加機能がある時は初期化子に追加する
+                        new CreateScriptableObjectDefinition(),
+                };
 
-		public ISubFunction[] SubFunctions {
-			get {
-				return m_subFunctions;
-			}
-		}
+                /// <summary>利用可能なサブ機能の一覧を取得します。</summary>
+                public ISubFunction[] SubFunctions {
+                        get {
+                                return m_subFunctions;
+                        }
+                }
 
-		/// <summary> 機能名 </summary>
-		public string FunctionName {
-			get {
-				return "インポート定義作成";
-			}
-		}
+                /// <summary>機能名を取得します。</summary>
+                public string FunctionName {
+                        get {
+                                return "インポート定義作成";
+                        }
+                }
 
-		/// <summary> インポート設定 </summary>
-		private NotionImporterSettings m_settings;
+                private NotionImporterSettings m_settings; // インポート設定
 
-		/// <summary> 選択しているサブ機能のインデックス </summary>
-		private int m_selectedSubFunctionIndex;
+                private int m_selectedSubFunctionIndex; // 選択しているサブ機能のインデックス
 
-		public int SelectedSubFunctionIndex {
-			get {
-				return m_selectedSubFunctionIndex;
-			}
-			set {
-				m_selectedSubFunctionIndex = value;
-			}
-		}
+                /// <summary>選択中のサブ機能インデックスを取得または設定します。</summary>
+                public int SelectedSubFunctionIndex {
+                        get {
+                                return m_selectedSubFunctionIndex;
+                        }
+                        set {
+                                m_selectedSubFunctionIndex = value;
+                        }
+                }
 
-		private TreeViewState m_treeViewState;
+                private TreeViewState m_treeViewState; // ツリービューの状態
 
-		private NotionTree m_notionTree;
-		public NotionTree NotionTree {
-			get {
-				return m_notionTree;
-			}
-		}
+                private NotionTree m_notionTree; // 表示中のNotionツリー
 
-		/// <summary> Notionインポータの機能を描画する </summary>
-		public void DrawFunction(MainImportWindow parent, NotionImporterSettings settings) {
-			m_parent = parent;
-			m_settings = settings;
+                /// <summary>表示に使用するNotionツリーを取得します。</summary>
+                public NotionTree NotionTree {
+                        get {
+                                return m_notionTree;
+                        }
+                }
+
+                /// <summary>Notionインポータの機能を描画する</summary>
+                public void DrawFunction(MainImportWindow parent, NotionImporterSettings settings) {
+                        m_parent = parent; // 親ウィンドウと設定情報を保持
+                        m_settings = settings;
 
 			foreach (var func in m_subFunctions) {
 				func.ParentFunction = this;
 			}
 
-			//接続が成功した場合のみデータベースリストを描画
-			if (m_settings.connectionSucceed) {
+			if (m_settings.connectionSucceed) { // 接続が成功した場合のみデータベースリストを描画
 				DrawDefinitionNameSetting();
 				DrawOutputFolderSetting();
 
-				//サブ機能をドロップダウンリストで表示
-				m_selectedSubFunctionIndex = EditorGUILayout.Popup("インポート種別", m_selectedSubFunctionIndex,
+				m_selectedSubFunctionIndex = EditorGUILayout.Popup("インポート種別", m_selectedSubFunctionIndex, // サブ機能をドロップダウンリストで表示
 					m_subFunctions.Select(func => func.FunctionName).ToArray());
 
 				using (new EditorGUILayout.HorizontalScope()) {
 					DrawNotionTree();
 
-					//サブ機能の描画を実行
-					m_subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings);
+					m_subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
 				}
 
 				DrawFooter();
@@ -85,8 +83,9 @@ namespace NotionImporter.Functions {
 			}
 		}
 
-		private void DrawNotionTree() {
-			using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) {
+                /// <summary>Notionのデータベース構造をツリー表示します。</summary>
+                private void DrawNotionTree() {
+                        using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // Notionオブジェクトを一覧表示する枠を描画
 				using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
 					GUILayout.Label("Notionオブジェクト", "ProfilerHeaderLabel");
 				}
@@ -125,14 +124,16 @@ namespace NotionImporter.Functions {
 			}
 		}
 
-		private void DrawDefinitionNameSetting() {
-			using (new EditorGUILayout.HorizontalScope()) {
-				m_settings.DefinitionName = EditorGUILayout.TextField("定義名", m_settings.DefinitionName);
-			}
-		}
+                /// <summary>定義名の入力欄を描画します。</summary>
+                private void DrawDefinitionNameSetting() {
+                        using (new EditorGUILayout.HorizontalScope()) { // 定義名を入力するテキストフィールドを配置
+                                m_settings.DefinitionName = EditorGUILayout.TextField("定義名", m_settings.DefinitionName);
+                        }
+                }
 
-		private void DrawOutputFolderSetting() {
-			using (new EditorGUILayout.HorizontalScope()) {
+                /// <summary>出力先フォルダ設定を描画します。</summary>
+                private void DrawOutputFolderSetting() {
+                        using (new EditorGUILayout.HorizontalScope()) { // 選択済みフォルダを表示し、必要に応じて変更できるようにする
 				using (new EditorGUI.DisabledScope(true)) {
 					m_settings.OutputPath = EditorGUILayout.TextField("インポート先フォルダ", m_settings.OutputPath);
 				}
@@ -147,14 +148,15 @@ namespace NotionImporter.Functions {
 			}
 		}
 
-		private void DrawFooter() {
-			if (GUILayout.Button("インポート定義作成")) {
+                /// <summary>インポート定義作成ボタンを描画します。</summary>
+                private void DrawFooter() {
+                        if (GUILayout.Button("インポート定義作成")) { // 定義作成処理のトリガーボタン
 
 
-				m_subFunctions[m_selectedSubFunctionIndex].CreateFile();
+                                m_subFunctions[m_selectedSubFunctionIndex].CreateFile();
 
-			}
-		}
+                        }
+                }
 
 	}
 
