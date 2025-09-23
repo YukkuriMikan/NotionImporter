@@ -154,11 +154,11 @@ namespace NotionImporter.Functions.Output {
 						foreach (var dat in def.mappingData) {
 							var targetPropId = dat.targetPropertyId;
 
-							foreach (var prop in props) {
-								if(prop.Value.id == targetPropId) {
-									var propValue = NotionUtils.GetStringProperty(m_settings, prop.Value);
+                                                        foreach (var prop in props) {
+                                                                if(prop.Value.id == targetPropId) {
+                                                                        var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value); // 非同期結果を待って文字列を取得
 
-									SetObjectField(so, dat.targetFieldName, propValue);
+                                                                        SetObjectField(so, dat.targetFieldName, propValue);
 
 									break;
 								}
