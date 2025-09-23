@@ -1,3 +1,4 @@
+using System; // Exception処理用
 using NotionImporter;
 
 /// <summary> Notionとの接続処理を管理するクラス </summary>
@@ -22,37 +23,68 @@ public class NotionConnector {
         public void InitialConnect() {
                 if (m_isInitialized) return; // 二重初期化を防止する
 
-                m_mainWindow.CurrentStatusString = "初期化中"; // ステータス更新を行い初期化開始を通知する
+                try {
+                        m_mainWindow.CurrentStatusString = "初期化中"; // ステータス更新を行い初期化開始を通知する
 
-                m_isInitialized = true; // 初期化フラグを立てる
+                        m_isInitialized = true; // 初期化フラグを立てる
 
-                EnsureSettingsLoaded(); // 設定が未ロードであれば読み込む
+                        if (!EnsureSettingsLoaded()) { // 設定読み込みに失敗した場合は再試行可能にして終了
+                                m_isInitialized = false;
+                                return;
+                        }
 
-                ForceConnect(); // 設定を使って接続処理を開始する
+                        ForceConnect(); // 設定を使って接続処理を開始する
+                } catch (Exception ex) {
+                        m_isInitialized = false; // エラー時は再初期化できるようにフラグを戻す
+                        m_mainWindow.ReportError("初期化処理", ex);
+                }
         }
 
         /// <summary> Notionへの接続処理を実行する </summary>
         public void ForceConnect() {
-                EnsureSettingsLoaded(); // 設定が準備されているか確認する
+                try {
+                        if (!EnsureSettingsLoaded()) { // 設定が準備できなければ接続処理を行わない
+                                IsConnected = false;
+                                return;
+                        }
 
-                m_mainWindow.CurrentStatusString = "接続開始"; // ステータスを接続開始に変更する
+                        m_mainWindow.CurrentStatusString = "接続開始"; // ステータスを接続開始に変更する
 
-                ImporterSettings.RefreshDatabaseInfo(); // データベース情報の更新を行う
+                        ImporterSettings.RefreshDatabaseInfo(); // データベース情報の更新を行う
 
-                if (ImporterSettings.connectionSucceed) { // 成否に応じてステータスと保存処理を分岐する
-                        m_mainWindow.CurrentStatusString = "接続成功";
-                        NotionImporterSettings.SaveSetting(ImporterSettings);
-                        IsConnected = ImporterSettings.connectionSucceed;
-                } else {
-                        m_mainWindow.CurrentStatusString = "接続失敗";
+                        if (ImporterSettings.connectionSucceed) { // 成否に応じてステータスと保存処理を分岐する
+                                m_mainWindow.CurrentStatusString = "接続成功";
+                                NotionImporterSettings.SaveSetting(ImporterSettings);
+                                IsConnected = true;
+                        } else {
+                                IsConnected = false;
+                                m_mainWindow.CurrentStatusString = "接続失敗";
+                        }
+                } catch (Exception ex) {
+                        IsConnected = false; // エラー時は接続失敗扱い
+                        m_mainWindow.ReportError("Notionへの接続処理", ex);
                 }
         }
 
         /// <summary> 設定が読み込まれているか確認し必要ならロードする </summary>
-        private void EnsureSettingsLoaded() {
-                if (ImporterSettings == null) { // 設定が未設定の場合は保存データから読み込む
-                        ImporterSettings = NotionImporterSettings.LoadSetting();
+        private bool EnsureSettingsLoaded() {
+                if (ImporterSettings != null) { // 既に読み込み済みなら成功扱い
+                        return true;
                 }
+
+                try {
+                        ImporterSettings = NotionImporterSettings.LoadSetting();
+                } catch (Exception ex) {
+                        m_mainWindow.ReportError("設定ファイルの読み込み", ex); // 読み込み失敗時はエラー表示
+                        return false;
+                }
+
+                if (ImporterSettings == null) { // 設定ファイルが存在しない場合は新規インスタンスを作成
+                        ImporterSettings = new NotionImporterSettings();
+                        m_mainWindow.CurrentStatusString = "設定ファイルが見つかりませんでした。新規設定を使用します";
+                }
+
+                return ImporterSettings != null;
         }
 
 }
