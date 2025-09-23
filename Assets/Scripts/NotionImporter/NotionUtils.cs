@@ -7,25 +7,25 @@ using UnityEngine;
 
 namespace NotionImporter {
 
-        /// <summary>Notionデータ操作向けのユーティリティを提供します。</summary>
-        public static class NotionUtils {
+	/// <summary>Notionデータ操作向けのユーティリティを提供します。</summary>
+	public static class NotionUtils {
 
 		/// <summary> プロパティから文字列として値を取り出す </summary>
 		/// <param name="propVal">対象のプロパティ(DynamicJSON前提)</param>
 		/// <returns>文字列の値</returns>
-                public async static UniTask<string> GetStringProperty(NotionImporterSettings settings, dynamic propVal) {
-                        var type = Enum.Parse<DbPropertyType>(propVal["type"].ToString()); // プロパティ種別ごとに文字列化の方法を切り替える
+		public async static UniTask<string> GetStringProperty(NotionImporterSettings settings, dynamic propVal) {
+			var type = Enum.Parse<DbPropertyType>(propVal["type"].ToString()); // プロパティ種別ごとに文字列化の方法を切り替える
 
-			switch (type) {
+			switch(type) {
 				case DbPropertyType.rollup:
-					if (((object[])propVal.rollup.array).Length == 0) { // データ無しの場合
+					if(((object[])propVal.rollup.array).Length == 0) { // データ無しの場合
 						return null;
 					}
 
 					return propVal.rollup.array[0].rich_text[0].plain_text;
 
 				case DbPropertyType.relation:
-					if (propVal.relation.IsArray) {
+					if(propVal.relation.IsArray) {
 						var titleList = new string[((object[])propVal.relation).Length];
 
 						try {
@@ -34,8 +34,8 @@ namespace NotionImporter {
 								var result = DynamicJson.Parse(resultJson);
 
 								foreach (dynamic prop in (object[])result.properties) {
-									if (prop.Value.type == "title") {
-										if (prop.Value.title.IsArray) {
+									if(prop.Value.type == "title") {
+										if(prop.Value.title.IsArray) {
 											var titleStr = "";
 
 											foreach (dynamic ti in (object[])prop.Value.title) {
@@ -64,8 +64,8 @@ namespace NotionImporter {
 						var result = DynamicJson.Parse(resultJson);
 
 						foreach (dynamic prop in (object[])result.properties) {
-							if (prop.Value.type == "title") {
-								if (prop.Value.title.IsArray) {
+							if(prop.Value.type == "title") {
+								if(prop.Value.title.IsArray) {
 									var titleStr = "";
 
 									foreach (dynamic ti in (object[])prop.Value.title) {
@@ -86,7 +86,7 @@ namespace NotionImporter {
 					return propVal.created_time;
 
 				case DbPropertyType.number:
-					if (propVal.number == null) {
+					if(propVal.number == null) {
 						return "0"; // Notionだと数字がNullは有り得る、その場合はデフォルト値の0を返す
 					}
 
@@ -108,10 +108,10 @@ namespace NotionImporter {
 					return propVal.last_edited_time;
 
 				case DbPropertyType.rich_text:
-					if (propVal.rich_text.IsArray) {
+					if(propVal.rich_text.IsArray) {
 						var returnStr = "";
 
-						if (((object[])propVal.rich_text).Length > 0) {
+						if(((object[])propVal.rich_text).Length > 0) {
 							foreach (var val in propVal.rich_text) {
 								returnStr += val.plain_text;
 							}
@@ -144,7 +144,7 @@ namespace NotionImporter {
 					return propVal.people.name;
 
 				case DbPropertyType.files:
-					if (((object[])propVal.files).Length == 0) {
+					if(((object[])propVal.files).Length == 0) {
 						return null;
 					} else {
 						return propVal.files[0].file.url;
@@ -157,10 +157,10 @@ namespace NotionImporter {
 					return propVal.checkbox?.ToString();
 
 				case DbPropertyType.title:
-					if (propVal.title.IsArray) {
+					if(propVal.title.IsArray) {
 						var returnStr = "";
 
-						if (((object[])propVal.title).Length > 0) {
+						if(((object[])propVal.title).Length > 0) {
 							foreach (var val in propVal.title) {
 								returnStr += val.plain_text;
 							}

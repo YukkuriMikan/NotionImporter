@@ -4,7 +4,7 @@ using System;
 [Serializable]
 public class SortParam {
 
-        public string direction = "ascending"; // ソート方向
-        public string timestamp = "last_edited_time"; // ソート対象のタイムスタンプ
+	public string direction = "ascending";        // ソート方向
+	public string timestamp = "last_edited_time"; // ソート対象のタイムスタンプ
 
 }

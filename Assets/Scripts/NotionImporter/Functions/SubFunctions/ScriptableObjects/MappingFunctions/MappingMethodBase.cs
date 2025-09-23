@@ -5,32 +5,26 @@ using UnityEngine;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
-        /// <summary>ScriptableObjectのマッピング処理の基本クラスです。</summary>
-        public abstract class MappingMethodBase {
+	/// <summary>ScriptableObjectのマッピング処理の基本クラスです。</summary>
+	public abstract class MappingMethodBase {
 
-                protected NotionImporterSettings m_settings; // 利用中のインポート設定
+		protected NotionImporterSettings m_settings; // 利用中のインポート設定
 
-                /// <summary>メソッドが必要とするターゲットアイテム</summary>
-                public virtual MappingItem MethodTarget { get; set; }
+		/// <summary>メソッドが必要とするターゲットアイテム</summary>
+		public virtual MappingItem MethodTarget { get; set; }
 
-                public virtual TypeItem MethodTargetType {
-			get {
-				return new TypeItem {
-					typeName = MethodTarget?.fieldInfo.FieldType.Name,
-					typeFullName = MethodTarget?.fieldInfo.FieldType.FullName,
-					assemblyName = MethodTarget?.fieldInfo.FieldType.Assembly.GetName().Name,
-				};
-			}
-		}
+		public virtual TypeItem MethodTargetType
+			=> new() {
+				typeName = MethodTarget?.fieldInfo.FieldType.Name,
+				typeFullName = MethodTarget?.fieldInfo.FieldType.FullName,
+				assemblyName = MethodTarget?.fieldInfo.FieldType.Assembly.GetName().Name,
+			};
 
-		public virtual TypeItem MethodTargetArrayType {
-			get {
-				return MethodTargetType;
-			}
-		}
+		public virtual TypeItem MethodTargetArrayType
+			=> MethodTargetType;
 
-                /// <summary>マッピング対象となるフィールド情報</summary>
-                public MappingItem[] MethodMappingItems { get; set; }
+		/// <summary>マッピング対象となるフィールド情報</summary>
+		public MappingItem[] MethodMappingItems { get; set; }
 
 		public abstract void DrawPaneHeader();
 
@@ -53,8 +47,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 		/// <summary> マッピングアイテムクラスを取得 </summary>
 		/// <param name="settings">Notion接続設定</param>
 		/// <param name="targetTypeItem">マッピング対象の型</param>
-                public void Initialize(NotionImporterSettings settings, TypeItem targetTypeItem) {
-                        m_settings = settings; // Notion設定と対象型を基に候補を生成
+		public void Initialize(NotionImporterSettings settings, TypeItem targetTypeItem) {
+			m_settings = settings; // Notion設定と対象型を基に候補を生成
 
 			MethodMappingItems = targetTypeItem // リフレクションで対象スクリプタブルオブジェクトが持つフィールドを列挙する
 				.targetType
@@ -78,8 +72,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 		/// <summary> マッピングのターゲットとなるフィールドの取得 </summary>
 		/// <param name="type">対象の型オブジェクト</param>
 		/// <returns>対象のマッピングフィールド</returns>
-                private NotionProperty[] GetMappingTargetProperty(Type type) {
-                        switch (type) { // フィールド型に対応したNotionプロパティを抽出
+		private NotionProperty[] GetMappingTargetProperty(Type type) {
+			switch(type) {                              // フィールド型に対応したNotionプロパティを抽出
 				case Type t1 when t1 == typeof(string): //文字列
 					return m_settings.CurrentProperty;
 
@@ -121,8 +115,8 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 				case Type t when t.BaseType == typeof(Enum): //Enum
 					return m_settings.CurrentProperty
 						.Where(prop => prop.type == DbPropertyType.select ||
-										prop.type == DbPropertyType.multi_select ||
-										prop.type == DbPropertyType.relation)
+							prop.type == DbPropertyType.multi_select ||
+							prop.type == DbPropertyType.relation)
 						.ToArray();
 
 				case Type t when t == typeof(Texture) || t == typeof(Texture2D):
@@ -141,7 +135,7 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 						.ToArray();
 
 				default:
-					if (type.IsArray || (type.Name == "List`1" && type.IsGenericType) ||
+					if(type.IsArray || (type.Name == "List`1" && type.IsGenericType) ||
 						(type.Name == "Dictionary`2" && type.IsGenericType)) {
 						return Array.Empty<NotionProperty>();
 					}

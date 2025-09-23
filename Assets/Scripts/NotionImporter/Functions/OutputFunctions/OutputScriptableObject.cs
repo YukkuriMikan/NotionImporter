@@ -13,11 +13,8 @@ namespace NotionImporter.Functions.Output {
 	/// <summary> スクリプタブルオブジェクトを出力 </summary>
 	public class OutputScriptableObject : IOutputFunction {
 
-		public Type DefinitionType {
-			get {
-				return typeof(ScriptableObjectImportDefinition);
-			}
-		}
+		public Type DefinitionType
+			=> typeof(ScriptableObjectImportDefinition);
 
 		private ISetScriptableObjectFieldFunction[] soFunctions = {
 			new DefaultSOFieldFunction(),
@@ -63,7 +60,7 @@ namespace NotionImporter.Functions.Output {
 								var id = prop.Value.id.ToString();
 
 								if(!string.IsNullOrWhiteSpace(def.keyProperty)) { // キー列設定があるか？
-									if(prop.Value.id == def.keyProperty) { // キー列と一致してたらセット
+									if(prop.Value.id == def.keyProperty) {        // キー列と一致してたらセット
 										var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value);
 
 										targetTypeList[index] = SetObjectField(targetTypeList[index], "Item1", propValue);
@@ -154,11 +151,11 @@ namespace NotionImporter.Functions.Output {
 						foreach (var dat in def.mappingData) {
 							var targetPropId = dat.targetPropertyId;
 
-                                                        foreach (var prop in props) {
-                                                                if(prop.Value.id == targetPropId) {
-                                                                        var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value); // 非同期結果を待って文字列を取得
+							foreach (var prop in props) {
+								if(prop.Value.id == targetPropId) {
+									var propValue = await NotionUtils.GetStringProperty(m_settings, prop.Value); // 非同期結果を待って文字列を取得
 
-                                                                        SetObjectField(so, dat.targetFieldName, propValue);
+									SetObjectField(so, dat.targetFieldName, propValue);
 
 									break;
 								}
