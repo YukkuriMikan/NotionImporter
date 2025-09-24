@@ -63,11 +63,17 @@ namespace NotionImporter {
 		/// <summary>取り込み時のキーとするカラム名を保持します。</summary>
 		public string KeyId { get; set; } // 取り込みキー列名
 
-		/// <summary>キーフィルタリングの使用有無を示します。</summary>
-		public bool UseKeyFiltering { get; set; } = false;
+                /// <summary>キーフィルタリングの使用有無を示します。</summary>
+                public bool UseKeyFiltering { get; set; } = false;
 
-		/// <summary>Notionから最新のデータベース情報を取得します。</summary>
-		public void RefreshDatabaseInfo() {
+                /// <summary>コレクション出力時に使用するソートキーです。</summary>
+                public string SortKey { get; set; } // 現在選択されているソート対象フィールド
+
+                /// <summary>コレクション出力時のソート順設定です。</summary>
+                public SortOrder SortOrder { get; set; } = SortOrder.Ascending; // ソート順（未設定時は昇順）
+
+                /// <summary>Notionから最新のデータベース情報を取得します。</summary>
+                public void RefreshDatabaseInfo() {
 			try {
 				var searchQuery = JsonUtility.ToJson(new SearchQuery()); // Notion APIを呼び出して内部状態を更新
 

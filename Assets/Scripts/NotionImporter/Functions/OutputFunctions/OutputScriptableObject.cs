@@ -173,22 +173,24 @@ namespace NotionImporter.Functions.Output {
 
 		public ImportDefinitionBase Deserialize(string json) => JsonUtility.FromJson<ScriptableObjectImportDefinition>(json);
 
-		public void OutputArrayScriptableObject(ScriptableObjectImportDefinition def, string assetName, object[] soValues, Type soType) {
-			var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{assetName}.asset", soType);
-			ScriptableObject so = default;
+                public void OutputArrayScriptableObject(ScriptableObjectImportDefinition def, string assetName, object[] soValues, Type soType) {
+                        var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{assetName}.asset", soType);
+                        ScriptableObject so = default;
 
-			if(existFile != null) {
-				so = (ScriptableObject)existFile;
-			} else {
-				so = ScriptableObject.CreateInstance(soType);
-				AssetDatabase.CreateAsset(so, def.outputPath + $"\\{assetName}.asset");
-			}
+                        if(existFile != null) {
+                                so = (ScriptableObject)existFile;
+                        } else {
+                                so = ScriptableObject.CreateInstance(soType);
+                                AssetDatabase.CreateAsset(so, def.outputPath + $"\\{assetName}.asset");
+                        }
 
-			var arrayType = def.targetFieldType.targetType; // キー列設定あり
-			var instance = Activator.CreateInstance(arrayType, soValues.Length);
-			var array = instance as Array;
+                        soValues = SortCollectionIfNeeded(def, soValues); // 出力直前に並べ替えを適用
 
-			for (int i = 0; i < soValues.Length; i++) {
+                        var arrayType = def.targetFieldType.targetType; // キー列設定あり
+                        var instance = Activator.CreateInstance(arrayType, soValues.Length);
+                        var array = instance as Array;
+
+                        for (int i = 0; i < soValues.Length; i++) {
 				array.SetValue(soValues[i], i);
 			}
 
@@ -196,12 +198,87 @@ namespace NotionImporter.Functions.Output {
 
 			EditorUtility.SetDirty(so);
 			AssetDatabase.SaveAssets();
-			Debug.Log($"NotionImporter: {assetName} Imported.");
-		}
+                        Debug.Log($"NotionImporter: {assetName} Imported.");
+                }
 
-		private object SetObjectField(object targetObject, string fieldName, string value) {
-			var field = targetObject.GetType()
-				.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                private object[] SortCollectionIfNeeded(ScriptableObjectImportDefinition def, object[] soValues) { // 並べ替え処理の入口
+                        if(def == null || soValues == null || soValues.Length <= 1) {
+                                return soValues; // nullや単要素はそのまま返す
+                        }
+
+                        if(string.IsNullOrEmpty(def.sortKey) || def.targetFieldType?.targetType == null) {
+                                return soValues; // ソートが不要なケース
+                        }
+
+                        var elementType = GetCollectionElementType(def.targetFieldType.targetType);
+
+                        if(elementType == null) {
+                                return soValues; // 要素型が特定できない場合はスキップ
+                        }
+
+                        var sortField = elementType.GetField(def.sortKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                        if(sortField == null) {
+                                Debug.LogWarning($"NotionImporter: ソートキー「{def.sortKey}」が型「{elementType.FullName}」に見つかりませんでした。");
+
+                                return soValues;
+                        }
+
+                        var sorted = soValues.ToArray();
+
+                        Array.Sort(sorted, (left, right) => CompareSortValues(sortField.GetValue(left), sortField.GetValue(right), def.sortOrder));
+
+                        return sorted;
+                }
+
+                private static Type GetCollectionElementType(Type collectionType) { // 定義されたコレクションから要素型を推定
+                        if(collectionType == null) {
+                                return null;
+                        }
+
+                        if(collectionType.IsArray) {
+                                return collectionType.GetElementType();
+                        }
+
+                        if(collectionType.IsGenericType && collectionType.GetGenericArguments().Length == 1) {
+                                return collectionType.GetGenericArguments()[0];
+                        }
+
+                        return null;
+                }
+
+                private static int CompareSortValues(object left, object right, SortOrder order) { // ソート順に応じて比較結果を調整
+                        var result = CompareRawValues(left, right);
+
+                        return order == SortOrder.Ascending ? result : -result; // 降順は符号反転
+                }
+
+                private static int CompareRawValues(object left, object right) { // nullや比較不能な値を安全に処理
+                        if(left == null && right == null) {
+                                return 0;
+                        }
+
+                        if(left == null) {
+                                return -1;
+                        }
+
+                        if(right == null) {
+                                return 1;
+                        }
+
+                        if(left is IComparable leftComparable && right is IComparable rightComparable) {
+                                return leftComparable.CompareTo(rightComparable);
+                        }
+
+                        var leftText = left?.ToString();
+                        var rightText = right?.ToString();
+
+                        return string.Compare(leftText, rightText, StringComparison.Ordinal);
+                }
+
+                private object SetObjectField(object targetObject, string fieldName, string value) {
+                        var field = targetObject.GetType()
+                                .GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
 			var fieldType = field.FieldType;
 

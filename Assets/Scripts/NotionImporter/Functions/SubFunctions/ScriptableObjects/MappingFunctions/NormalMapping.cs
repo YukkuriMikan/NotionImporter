@@ -1,6 +1,7 @@
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using NotionImporter;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
@@ -17,10 +18,12 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 			EditorGUILayout.LabelField("スクリプタブルオブジェクト", (GUIStyle)"AM HeaderStyle");
 		}
 
-		public override void DrawKeyRow() {
-			m_settings.KeyId = null; // 通常マッピングではキー設定を初期化
-			m_settings.UseKeyFiltering = false;
-		}
+                public override void DrawKeyRow() {
+                        m_settings.KeyId = null; // 通常マッピングではキー設定を初期化
+                        m_settings.UseKeyFiltering = false;
+                        m_settings.SortKey = null; // 単票出力ではソートを無効化
+                        m_settings.SortOrder = SortOrder.Ascending;
+                }
 
 		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
 			var selectableNotionFieldsNothing = itm.targetProperties.Length == 0; // 対象フィールドの種類に応じたマッピング可否を判定（Notion側に一致するフィールドがあるか）

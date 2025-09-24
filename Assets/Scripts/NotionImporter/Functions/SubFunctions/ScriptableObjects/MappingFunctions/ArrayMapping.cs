@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using NotionImporter;
 
 namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 
@@ -54,20 +55,68 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
 				using (new EditorGUI.DisabledScope(!m_useKeyProperty)) {
 					m_propertyIndex = EditorGUILayout.Popup(m_propertyIndex, props);
 				}
-			}
+                        }
 
-			if(m_useKeyProperty) {
-				m_settings.KeyId = m_settings.CurrentProperty
-					.ElementAtOrDefault(m_propertyIndex)?.id;
-			} else {
-				m_settings.KeyId = null;
-			}
+                        if(m_useKeyProperty) {
+                                m_settings.KeyId = m_settings.CurrentProperty
+                                        .ElementAtOrDefault(m_propertyIndex)?.id;
+                        } else {
+                                m_settings.KeyId = null;
+                        }
 
-			m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
+                        m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
 
-			GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
-			EditorGUILayout.Space();
-		}
+                        var mappingItems = MethodMappingItems ?? Array.Empty<MappingItem>(); // ソート候補となるフィールド群
+                        var sortKeyLabels = new string[mappingItems.Length + 1];
+                        var sortKeyValues = new string[mappingItems.Length + 1];
+
+                        sortKeyLabels[0] = "（ソートしない）";
+                        sortKeyValues[0] = string.Empty;
+
+                        for (var i = 0; i < mappingItems.Length; i++) {
+                                var item = mappingItems[i];
+
+                                sortKeyLabels[i + 1] = $"{item.fieldName}:{item.fieldInfo?.FieldType.Name}";
+                                sortKeyValues[i + 1] = item.fieldName;
+                        }
+
+                        var currentSortKey = string.IsNullOrEmpty(m_settings.SortKey) ? string.Empty : m_settings.SortKey;
+                        var sortKeyIndex = Array.IndexOf(sortKeyValues, currentSortKey);
+
+                        if(sortKeyIndex < 0) {
+                                sortKeyIndex = 0;
+                                m_settings.SortKey = null;
+                        }
+
+                        using (new EditorGUILayout.HorizontalScope()) {
+                                EditorGUILayout.LabelField("ソートキー", GUILayout.Width(80));
+                                sortKeyIndex = EditorGUILayout.Popup(sortKeyIndex, sortKeyLabels);
+                        }
+
+                        m_settings.SortKey = sortKeyIndex <= 0 ? null : sortKeyValues[sortKeyIndex]; // 選択したフィールド名を保存
+
+                        using (new EditorGUILayout.HorizontalScope()) {
+                                EditorGUILayout.LabelField("ソート順", GUILayout.Width(80));
+
+                                using (new EditorGUI.DisabledScope(sortKeyIndex == 0)) {
+                                        var sortOrderLabels = new[] {
+                                                "昇順",
+                                                "降順",
+                                        };
+
+                                        var orderIndex = EditorGUILayout.Popup((int)m_settings.SortOrder, sortOrderLabels);
+                                        orderIndex = Mathf.Clamp(orderIndex, 0, sortOrderLabels.Length - 1);
+                                        m_settings.SortOrder = (SortOrder)orderIndex;
+                                }
+                        }
+
+                        if(sortKeyIndex == 0) {
+                                m_settings.SortOrder = SortOrder.Ascending; // ソートキー未指定時は初期化
+                        }
+
+                        GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
+                        EditorGUILayout.Space();
+                }
 
 		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
 			var selectableNotionFieldsNothing = itm.targetProperties.Length == 0; // 配列向けのマッピング行を描画する際に、Notion側に一致フィールドがあるか確認
