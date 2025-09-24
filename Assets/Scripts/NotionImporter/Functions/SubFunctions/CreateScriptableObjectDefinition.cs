@@ -74,10 +74,12 @@ namespace NotionImporter.Functions.SubFunction {
 				mappingMode = m_mappingFunction.MappingMode,
 				keyProperty = m_settings.KeyId,
 				useKeyFiltering = m_settings.UseKeyFiltering,
-				targetFieldType = m_mappingFunction.CurrentMappingMethod.MethodTargetArrayType,
-				targetFieldName = m_mappingFunction.CurrentMappingMethod.MethodTarget?.fieldName,
-				mappingData = m_mappingFunction.CurrentMappingMethod.GetMappingData(),
-			};
+                                targetFieldType = m_mappingFunction.CurrentMappingMethod.MethodTargetArrayType,
+                                targetFieldName = m_mappingFunction.CurrentMappingMethod.MethodTarget?.fieldName,
+                                mappingData = m_mappingFunction.CurrentMappingMethod.GetMappingData(),
+                                sortKey = m_settings.SortKey,
+                                sortOrder = m_settings.SortOrder,
+                        };
 
 			var jsonText = JsonUtility.ToJson(soSetting);
 
@@ -114,8 +116,12 @@ namespace NotionImporter.Functions.SubFunction {
 
 			m_settings.DefinitionName = definition.definitionName;
 			m_settings.OutputPath = definition.outputPath;
-			m_settings.KeyId = definition.keyProperty;
-			m_settings.UseKeyFiltering = definition.useKeyFiltering;
+                        m_settings.KeyId = definition.keyProperty;
+                        m_settings.UseKeyFiltering = definition.useKeyFiltering;
+                        m_settings.SortKey = definition.sortKey; // 並べ替え設定を復元
+                        m_settings.SortOrder = Enum.IsDefined(typeof(SortOrder), definition.sortOrder)
+                                ? definition.sortOrder
+                                : SortOrder.Ascending; // 互換性確保のため異常値は昇順扱い
 
 			m_typePaneFunction.EnsureTypeList(m_settings); // 型リストを確実に初期化
 
