@@ -83,50 +83,68 @@ namespace NotionImporter.Functions {
 			}
 		}
 
-		/// <summary>Notionのデータベース構造をツリー表示します。</summary>
-		private void DrawNotionTree() {
-			using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // Notionオブジェクトを一覧表示する枠を描画
-				using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
-					GUILayout.Label("Notionオブジェクト", "ProfilerHeaderLabel");
-				}
+                /// <summary>Notionのデータベース構造をツリー表示します。</summary>
+                private void DrawNotionTree() {
+                        using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // Notionオブジェクトを一覧表示する枠を描画
+                                using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
+                                        GUILayout.Label("Notionオブジェクト", "ProfilerHeaderLabel");
+                                }
 
-				if(m_notionTree == null) {
-					if(m_treeViewState == null) {
-						m_treeViewState = new TreeViewState();
-					}
+                                if(m_settings.objects == null || m_settings.objects.Length == 0) {
+                                        EditorGUILayout.HelpBox("Notionで参照可能なオブジェクトが見つかりません。APIキーや権限を確認してください。", MessageType.Info); // 表示対象が無ければ案内だけ出して早期リターン
+                                        return;
+                                }
 
-					m_notionTree = new NotionTree(m_treeViewState);
+                                if(m_notionTree == null) {
+                                        if(m_treeViewState == null) {
+                                                m_treeViewState = new TreeViewState();
+                                        }
 
-					m_notionTree.Initialize(m_settings.objects);
+                                        m_notionTree = new NotionTree(m_treeViewState);
 
-					m_notionTree.ExpandAll();
-					m_notionTree.SetSelection(new[] {
-						m_settings.objects.FirstOrDefault().id.GetHashCode()
-					});
+                                        m_notionTree.Initialize(m_settings.objects);
 
-				} else {
-					m_notionTree.Initialize(m_settings.objects);
-				}
+                                        m_notionTree.ExpandAll();
 
-				var selectItem = m_notionTree.GetSelection();
+                                        var firstObject = m_settings.objects.FirstOrDefault();
+                                        if(firstObject != null) {
+                                                m_notionTree.SetSelection(new[] {
+                                                        firstObject.id.GetHashCode()
+                                                });
+                                        }
 
-				m_settings.CurrentObjectId = selectItem.FirstOrDefault();
+                                } else {
+                                        m_notionTree.Initialize(m_settings.objects);
+                                }
 
-				if(m_settings.CurrentObject.objectType == NotionObjectType.Container) {
-					var children = m_settings.objects
-						.Where(obj => obj.parent?.page_id == m_settings.CurrentObject.id && obj.objectType == NotionObjectType.Database)
-						.Select(child => child.id.GetHashCode()).ToList();
+                                var selectItem = m_notionTree.GetSelection();
 
-					children.Add(m_settings.CurrentObjectId);
-					m_notionTree.SetSelection(children);
-				}
+                                if(selectItem == null || selectItem.Count == 0) {
+                                        return; // 選択状態が無ければ後続処理をスキップして安全性を確保
+                                }
 
-				var rect = EditorGUILayout.GetControlRect(false, m_notionTree.totalHeight);
-				m_notionTree.OnGUI(rect);
-			}
-		}
+                                m_settings.CurrentObjectId = selectItem.FirstOrDefault();
 
-		/// <summary>定義名の入力欄を描画します。</summary>
+                                var currentObject = m_settings.CurrentObject;
+                                if(currentObject == null) {
+                                        return; // 選択オブジェクトが特定出来ない場合は描画を終了
+                                }
+
+                                if(currentObject.objectType == NotionObjectType.Container) {
+                                        var children = m_settings.objects
+                                                .Where(obj => obj.parent?.page_id == currentObject.id && obj.objectType == NotionObjectType.Database)
+                                                .Select(child => child.id.GetHashCode()).ToList();
+
+                                        children.Add(m_settings.CurrentObjectId);
+                                        m_notionTree.SetSelection(children);
+                                }
+
+                                var rect = EditorGUILayout.GetControlRect(false, m_notionTree.totalHeight);
+                                m_notionTree.OnGUI(rect);
+                        }
+                }
+
+                /// <summary>定義名の入力欄を描画します。</summary>
 		private void DrawDefinitionNameSetting() {
 			using (new EditorGUILayout.HorizontalScope()) { // 定義名を入力するテキストフィールドを配置
 				m_settings.DefinitionName = EditorGUILayout.TextField("定義名", m_settings.DefinitionName);
