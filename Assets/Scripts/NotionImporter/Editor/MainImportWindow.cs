@@ -41,7 +41,7 @@ namespace NotionImporter {
 			var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(NotionImporterParameters.IconPath);
 
 			if(!Directory.Exists(NotionImporterParameters.DefinitionFilePath)) { // 定義フォルダの存在確認。無ければ作成してプロジェクトビューを更新
-				AssetDatabase.CreateFolder(NotionImporterParameters.BasePath, NotionImporterParameters.DefinitionDirectoryName);
+				Directory.CreateDirectory(NotionImporterParameters.DefinitionFilePath); // ルートから生成して配置場所を固定
 				AssetDatabase.Refresh();
 			}
 

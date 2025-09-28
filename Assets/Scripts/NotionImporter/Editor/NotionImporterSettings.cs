@@ -203,6 +203,12 @@ namespace NotionImporter {
 			try {
 				var json = JsonUtility.ToJson(setting); // インポータ設定を書き出し
 
+				var settingDirectory = Path.GetDirectoryName(NotionImporterParameters.SettingFilePath); // 設定保存用ディレクトリを取得
+
+				if(!string.IsNullOrEmpty(settingDirectory) && !Directory.Exists(settingDirectory)) {
+					Directory.CreateDirectory(settingDirectory); // 事前にフォルダを生成して出力先を保証
+				}
+
 				File.WriteAllText(NotionImporterParameters.SettingFilePath, json); // 設定ファイルへ書き出し
 
 				AssetDatabase.Refresh(); // Unity エディタにアセット変更を通知
