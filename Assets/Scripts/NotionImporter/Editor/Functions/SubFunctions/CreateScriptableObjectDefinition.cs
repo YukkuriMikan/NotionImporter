@@ -57,14 +57,13 @@ namespace NotionImporter.Functions.SubFunction {
 				return;
 			}
 
-			if(!Directory.Exists(NotionImporterParameters.DefinitionFilePath + $"\\{nameof(ScriptableObjectImportDefinition)}")) {
-				Directory.CreateDirectory(NotionImporterParameters.DefinitionFilePath +
-					$"\\{nameof(ScriptableObjectImportDefinition)}");
+			var definitionCategoryPath = Path.Combine(NotionImporterParameters.DefinitionFilePath, nameof(ScriptableObjectImportDefinition)); // 型毎の定義を格納するフォルダ
+
+			if(!Directory.Exists(definitionCategoryPath)) {
+				Directory.CreateDirectory(definitionCategoryPath); // カテゴリフォルダを事前生成
 			}
 
-			var filePath = NotionImporterParameters.DefinitionFilePath + // 型名のフォルダに定義ファイルを保存
-				$"\\{nameof(ScriptableObjectImportDefinition)}" +
-				$"\\{m_settings.DefinitionName}.json";
+			var filePath = Path.Combine(definitionCategoryPath, $"{m_settings.DefinitionName}.json"); // 型名のフォルダに定義ファイルを保存
 
 			var soSetting = new ScriptableObjectImportDefinition {
 				outputPath = m_settings.OutputPath,
