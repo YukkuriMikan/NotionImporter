@@ -43,6 +43,10 @@ namespace NotionImporter {
 		/// <summary>現在選択されているデータベースを取得します。</summary>
 		public NotionObject CurrentObject {
 			get {
+				if(objects == null || objects.Length == 0) {
+					return null; // objects が未初期化の場合は null を返して呼び出し元で安全に処理させる
+				}
+
 				return objects.FirstOrDefault(obj => obj.id.GetHashCode() == CurrentObjectId); // objects 内から CurrentObjectId に一致するものを取得（id.GetHashCode() をキーにしているため衝突に注意）
 			}
 		}
@@ -52,11 +56,15 @@ namespace NotionImporter {
 			get {
 				var obj = CurrentObject;
 
-				if(CurrentObject.objectType == NotionObjectType.Container) {                                                                    // 注意: CurrentObject が null の場合は NullReference の可能性あり（仕様準拠）
-					obj = objects.FirstOrDefault(obj => obj.parent.page_id == CurrentObject.id && obj.objectType == NotionObjectType.Database); // コンテナ直下のデータベースを探索して、そのプロパティを参照
+				if(obj == null) {
+					return Array.Empty<NotionProperty>(); // 現在選択中のオブジェクトが無ければ空配列で呼び出し側の安全性を確保
 				}
 
-				return obj.properties;
+				if(obj.objectType == NotionObjectType.Container) {
+					obj = objects?.FirstOrDefault(child => child.parent?.page_id == CurrentObject?.id && child.objectType == NotionObjectType.Database); // コンテナ直下のデータベースを探索して、そのプロパティを参照
+				}
+
+				return obj?.properties ?? Array.Empty<NotionProperty>();
 			}
 		}
 
