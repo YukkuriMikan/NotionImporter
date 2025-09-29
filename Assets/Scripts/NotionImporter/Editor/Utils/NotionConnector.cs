@@ -48,7 +48,13 @@ namespace NotionImporter {
 					return;
 				}
 
-				m_mainWindow.CurrentStatusString = "接続開始"; // ステータスを接続開始に変更する
+                                if(string.IsNullOrWhiteSpace(ImporterSettings.apiKey)) { // APIキー未入力時は接続を打ち切る
+                                        IsConnected = false;
+                                        m_mainWindow.CurrentStatusString = "Notion APIキーが未設定です"; // ステータスに未設定を表示
+                                        return;
+                                }
+
+                                m_mainWindow.CurrentStatusString = "接続開始"; // ステータスを接続開始に変更する
 
 				ImporterSettings.RefreshDatabaseInfo(); // データベース情報の更新を行う
 
