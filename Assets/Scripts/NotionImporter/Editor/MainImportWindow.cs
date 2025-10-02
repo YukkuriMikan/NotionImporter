@@ -40,7 +40,7 @@ namespace NotionImporter {
 
 			var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(NotionImporterParameters.IconPath);
 
-			if(!Directory.Exists(NotionImporterParameters.DefinitionFilePath)) { // 定義フォルダの存在確認。無ければ作成してプロジェクトビューを更新
+			if(!Directory.Exists(NotionImporterParameters.DefinitionFilePath)) {        // 定義フォルダの存在確認。無ければ作成してプロジェクトビューを更新
 				Directory.CreateDirectory(NotionImporterParameters.DefinitionFilePath); // ルートから生成して配置場所を固定
 				AssetDatabase.Refresh();
 			}
@@ -144,22 +144,22 @@ namespace NotionImporter {
 			DrawBlockWithErrorHandling(
 				"ヘッダー",
 				() => {
-                                        using (new GUILayout.HorizontalScope()) {
-                                                m_connector.ImporterSettings.apiKey = EditorGUILayout.TextField("Notion APIキー", m_connector.ImporterSettings.apiKey); // APIキー入力欄（即時反映）
+					using (new GUILayout.HorizontalScope()) {
+						m_connector.ImporterSettings.apiKey = EditorGUILayout.TextField("Notion APIキー", m_connector.ImporterSettings.apiKey); // APIキー入力欄（即時反映）
 
-                                                if(GUILayout.Button("更新", GUILayout.Width(50))) {
-                                                        ExecuteWithErrorHandling("Notionへの再接続", () => m_connector.ForceConnect()); // 明示的に再接続を要求（認証情報が変わった際に使用）
-                                                }
-                                        }
+						if(GUILayout.Button("更新", GUILayout.Width(50))) {
+							ExecuteWithErrorHandling("Notionへの再接続", () => m_connector.ForceConnect()); // 明示的に再接続を要求（認証情報が変わった際に使用）
+						}
+					}
 
-                                        if(string.IsNullOrWhiteSpace(m_connector.ImporterSettings.apiKey)) { // APIキー未設定時の警告表示
-                                                EditorGUILayout.HelpBox("Notion APIキーが未入力です。設定してください。", MessageType.Warning);
-                                        }
-                                },
-                                message => {
-                                        using (new GUILayout.HorizontalScope()) {
-                                                EditorGUILayout.LabelField(message, EditorStyles.boldLabel); // 描画不能時は領域内にエラーを表示
-                                        }
+					if(string.IsNullOrWhiteSpace(m_connector.ImporterSettings.apiKey)) { // APIキー未設定時の警告表示
+						EditorGUILayout.HelpBox("Notion APIキーが未入力です。設定してください。", MessageType.Warning);
+					}
+				},
+				message => {
+					using (new GUILayout.HorizontalScope()) {
+						EditorGUILayout.LabelField(message, EditorStyles.boldLabel); // 描画不能時は領域内にエラーを表示
+					}
 				});
 		}
 

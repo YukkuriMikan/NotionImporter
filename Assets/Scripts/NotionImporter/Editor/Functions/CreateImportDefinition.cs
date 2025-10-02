@@ -17,18 +17,10 @@ namespace NotionImporter.Functions {
 		};
 
 		/// <summary>利用可能なサブ機能の一覧を取得します。</summary>
-		public ISubFunction[] SubFunctions {
-			get {
-				return m_subFunctions;
-			}
-		}
+		public ISubFunction[] SubFunctions => m_subFunctions;
 
 		/// <summary>機能名を取得します。</summary>
-		public string FunctionName {
-			get {
-				return "インポート定義作成";
-			}
-		}
+		public string FunctionName => "Notionインポート定義作成";
 
 		private NotionImporterSettings m_settings; // インポート設定
 
@@ -36,12 +28,8 @@ namespace NotionImporter.Functions {
 
 		/// <summary>選択中のサブ機能インデックスを取得または設定します。</summary>
 		public int SelectedSubFunctionIndex {
-			get {
-				return m_selectedSubFunctionIndex;
-			}
-			set {
-				m_selectedSubFunctionIndex = value;
-			}
+			get => m_selectedSubFunctionIndex;
+			set => m_selectedSubFunctionIndex = value;
 		}
 
 		private TreeViewState m_treeViewState; // ツリービューの状態
@@ -49,11 +37,7 @@ namespace NotionImporter.Functions {
 		private NotionTree m_notionTree; // 表示中のNotionツリー
 
 		/// <summary>表示に使用するNotionツリーを取得します。</summary>
-		public NotionTree NotionTree {
-			get {
-				return m_notionTree;
-			}
-		}
+		public NotionTree NotionTree => m_notionTree;
 
 		/// <summary>Notionインポータの機能を描画する</summary>
 		public void DrawFunction(MainImportWindow parent, NotionImporterSettings settings) {
