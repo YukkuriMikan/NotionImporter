@@ -16,12 +16,34 @@ namespace NotionImporter {
 
 		private const string ASSEMBLY_NAME = "NotionImporter"; // 出力処理を検索する対象アセンブリ名
 
-		private static IOutputFunction[] m_outputFunctions = { // 利用可能な出力処理一覧
-			new OutputScriptableObject(),
-		};
+		private static IOutputFunction[] m_outputFunctions = Array.Empty<IOutputFunction>(); // 利用可能な出力処理一覧
 
 		static ImportMenu() {
+			m_outputFunctions = LoadOutputFunctions();
 			RefreshImportMenu().Forget();
+		}
+
+		/// <summary>リフレクションで出力処理を収集します。</summary>
+		private static IOutputFunction[] LoadOutputFunctions() {
+			var targetAssembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == ASSEMBLY_NAME); // 対象アセンブリを検索
+
+			if(targetAssembly == null) {
+				Debug.LogWarning($"出力処理アセンブリ「{ASSEMBLY_NAME}」が見つかりませんでした。"); // 取得失敗を通知
+				return Array.Empty<IOutputFunction>();
+			}
+
+			return targetAssembly.GetTypes()
+				.Where(type => typeof(IOutputFunction).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
+				.Select(type => {
+					try {
+						return Activator.CreateInstance(type) as IOutputFunction; // 生成成功時のみ採用
+					} catch(Exception ex) {
+						Debug.LogError($"出力処理の生成に失敗しました: {type.FullName}\n{ex}");
+						return null;
+					}
+				})
+				.Where(instance => instance != null)
+				.ToArray();
 		}
 
 		/// <summary> ツールバーのインポートメニューを更新する </summary>
