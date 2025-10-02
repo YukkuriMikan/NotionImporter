@@ -40,6 +40,8 @@ namespace NotionImporter.Functions {
 		/// <summary>表示に使用するNotionツリーを取得します。</summary>
 		public NotionTree NotionTree => m_notionTree;
 
+		private NotionObject[] m_cachedNotionObjects; // 最新のNotionオブジェクト参照を保持
+
 		/// <summary>Notionインポータの機能を描画する</summary>
 		public void DrawFunction(MainImportWindow parent, NotionImporterSettings settings) {
 			m_parent = parent; // 親ウィンドウと設定情報を保持
@@ -76,9 +78,15 @@ namespace NotionImporter.Functions {
 			}
 		}
 
-                /// <summary>Notionのデータベース構造をツリー表示します。</summary>
-                private void DrawNotionTree() {
-                        using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // Notionオブジェクトを一覧表示する枠を描画
+		/// <summary>Notionのデータベース構造をツリー表示します。</summary>
+		private void DrawNotionTree() {
+			if(!ReferenceEquals(m_cachedNotionObjects, m_settings.objects)) {
+				m_cachedNotionObjects = m_settings.objects; // 新しい取得結果に更新
+				m_notionTree = null;
+				m_treeViewState = null; // ⭐ データ更新時はツリーを作り直して最新状態を表示
+			}
+
+			using (new EditorGUILayout.VerticalScope(GUI.skin.textArea)) { // Notionオブジェクトを一覧表示する枠を描画
                                 using (new EditorGUILayout.HorizontalScope("AC BoldHeader")) {
                                         GUILayout.Label("Notionオブジェクト", "ProfilerHeaderLabel");
                                 }
