@@ -57,28 +57,32 @@ namespace NotionImporter {
 		#endregion
 
 		#region Unity Callbacks
-		/// <summary>エディタウィンドウの描画</summary>
-		private void OnGUI() {
+                /// <summary>エディタウィンドウの描画</summary>
+                private void OnGUI() {
                         #region ツールバー描画
-			DrawToolBar();
+                        DrawToolBar();
                         #endregion
 
-			if(m_connector == null) { // 遅延初期化（OnGUIは複数回呼ばれるため、nullチェックで1度だけ生成）
-				ExecuteWithErrorHandling("Notionコネクタの生成", () => m_connector = new NotionConnector(this));
-			}
+                        using (new EditorGUILayout.VerticalScope(GUILayout.ExpandHeight(true))) { // メイン領域を縦並びに確保してフッターを下部に固定
+                                if(m_connector == null) { // 遅延初期化（OnGUIは複数回呼ばれるため、nullチェックで1度だけ生成）
+                                        ExecuteWithErrorHandling("Notionコネクタの生成", () => m_connector = new NotionConnector(this));
+                                }
 
-			if(m_connector != null) {                                                   // コネクタ生成に成功した場合のみ後続処理を実行
-				ExecuteWithErrorHandling("初期接続処理", () => m_connector.InitialConnect()); // APIキーが設定済みであれば初回接続を行う（必要時のみ実行される想定）
+                                if(m_connector != null) {                                                   // コネクタ生成に成功した場合のみ後続処理を実行
+                                        ExecuteWithErrorHandling("初期接続処理", () => m_connector.InitialConnect()); // APIキーが設定済みであれば初回接続を行う（必要時のみ実行される想定）
 
-				DrawHeader();
+                                        DrawHeader();
 
-				if(m_connector.IsConnected) {
-					DrawFunctionArea(); // 機能タブの描画（現状は最初の機能のみ使用）
-				}
-			}
+                                        if(m_connector.IsConnected) {
+                                                DrawFunctionArea(); // 機能タブの描画（現状は最初の機能のみ使用）
+                                        }
+                                }
 
-			DrawFooter();
-		}
+                                GUILayout.FlexibleSpace(); // 余白を可変領域にし、下部のステータスバーを常に最下部へ配置
+
+                                DrawFooter();
+                        }
+                }
 		#endregion
 
 		#region GUI Draw Methods
