@@ -13,9 +13,11 @@ namespace NotionImporter.Functions {
 	/// <summary>インポート定義を作成するメイン機能です。</summary>
 	public class CreateImportDefinition : IMainFunction {
 
-		private MainImportWindow m_parent; // 親ウィンドウ
+                private MainImportWindow m_parent; // 親ウィンドウ
 
-		private ISubFunction[] m_subFunctions; // サブ機能のキャッシュ、リフレクションで自動収集する
+                private ISubFunction[] m_subFunctions; // サブ機能のキャッシュ、リフレクションで自動収集する
+
+                private bool m_isLastSelectionLoaded; // 前回選択済みインポート種別の適用有無
 
 		/// <summary>利用可能なサブ機能の一覧を取得します。</summary>
 		public ISubFunction[] SubFunctions => m_subFunctions ??= LoadSubFunctions();
@@ -28,10 +30,20 @@ namespace NotionImporter.Functions {
 		private int m_selectedSubFunctionIndex; // 選択しているサブ機能のインデックス
 
 		/// <summary>選択中のサブ機能インデックスを取得または設定します。</summary>
-		public int SelectedSubFunctionIndex {
-			get => m_selectedSubFunctionIndex;
-			set => m_selectedSubFunctionIndex = Mathf.Clamp(value, 0, Mathf.Max(0, SubFunctions.Length - 1)); // 無効なインデックスを防ぐ
-		}
+                public int SelectedSubFunctionIndex {
+                        get => m_selectedSubFunctionIndex;
+                        set {
+                                var clamped = Mathf.Clamp(value, 0, Mathf.Max(0, SubFunctions.Length - 1)); // 範囲外アクセスの防止
+
+                                if(m_selectedSubFunctionIndex == clamped) {
+                                        return; // 値が変わらない場合は何もしない
+                                }
+
+                                m_selectedSubFunctionIndex = clamped;
+
+                                PersistLastSelection(SubFunctions.Length > 0 ? SubFunctions[m_selectedSubFunctionIndex] : null); // 選択種別を永続化
+                        }
+                }
 
 		private TreeViewState m_treeViewState; // ツリービューの状態
 
@@ -57,20 +69,29 @@ namespace NotionImporter.Functions {
 				func.ParentFunction = this;
 			}
 
-			if(m_settings.connectionSucceed) { // 接続が成功した場合のみデータベースリストを描画
-				DrawDefinitionNameSetting();
-				DrawOutputFolderSetting();
+                        if(m_settings.connectionSucceed) { // 接続が成功した場合のみデータベースリストを描画
+                                DrawDefinitionNameSetting();
+                                DrawOutputFolderSetting();
 
-				m_selectedSubFunctionIndex = Mathf.Clamp(m_selectedSubFunctionIndex, 0, subFunctions.Length - 1); // 配列外参照の防止
+                                if(!m_isLastSelectionLoaded) {
+                                        LoadLastSelection(subFunctions); // 前回選択を初回描画時に反映
+                                }
 
-				m_selectedSubFunctionIndex = EditorGUILayout.Popup("インポート種別", m_selectedSubFunctionIndex, // サブ機能をドロップダウンリストで表示
-					subFunctions.Select(func => func.FunctionName).ToArray());
+                                m_selectedSubFunctionIndex = Mathf.Clamp(m_selectedSubFunctionIndex, 0, subFunctions.Length - 1); // 配列外参照の防止
 
-				using (new EditorGUILayout.HorizontalScope()) {
-					DrawNotionTree();
+                                var newSelectedIndex = EditorGUILayout.Popup("インポート種別", m_selectedSubFunctionIndex, // サブ機能をドロップダウンリストで表示
+                                        subFunctions.Select(func => func.FunctionName).ToArray());
 
-					subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
-				}
+                                if(newSelectedIndex != m_selectedSubFunctionIndex) {
+                                        m_selectedSubFunctionIndex = newSelectedIndex;
+                                        PersistLastSelection(subFunctions[m_selectedSubFunctionIndex]); // 選択変更時に保存
+                                }
+
+                                using (new EditorGUILayout.HorizontalScope()) {
+                                        DrawNotionTree();
+
+                                        subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
+                                }
 
 				DrawFooter();
 			} else {
@@ -177,35 +198,79 @@ namespace NotionImporter.Functions {
 		}
 
 		/// <summary>ISubFunctionを実装したクラスをリフレクションで収集します。</summary>
-		private static ISubFunction[] LoadSubFunctions() {
-			var instances = new List<ISubFunction>(); // 生成したサブ機能を蓄積
+                private static ISubFunction[] LoadSubFunctions() {
+                        var instances = new List<ISubFunction>(); // 生成したサブ機能を蓄積
 
-      foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
-				if(type.IsAbstract) {
-					continue; // 抽象クラスはインスタンス化できない
-				}
+                        foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
+                                if(type.IsAbstract) {
+                                        continue; // 抽象クラスはインスタンス化できない
+                                }
 
-				if(type.GetConstructor(Type.EmptyTypes) == null) {
-					continue; // 引数なしコンストラクタが無い型は生成不可なのでスキップ
-				}
+                                if(type.GetConstructor(Type.EmptyTypes) == null) {
+                                        continue; // 引数なしコンストラクタが無い型は生成不可なのでスキップ
+                                }
 
-				try {
-					var instance = (ISubFunction)Activator.CreateInstance(type);
-					if(instance != null) {
-						instances.Add(instance);
-					}
-				} catch(Exception ex) {
-					Debug.LogWarning($"ISubFunctionの生成に失敗しました: {type.FullName}\n{ex}"); // 生成エラーを通知
-				}
+                                try {
+                                        var instance = (ISubFunction)Activator.CreateInstance(type);
+                                        if(instance != null) {
+                                                instances.Add(instance);
+                                        }
+                                } catch(Exception ex) {
+                                        Debug.LogWarning($"ISubFunctionの生成に失敗しました: {type.FullName}\n{ex}"); // 生成エラーを通知
+                                }
+                        }
+
+                        if(instances.Count == 0) {
+                                Debug.LogWarning("ISubFunctionを実装したクラスが見つかりませんでした。"); // 未検出時に注意喚起
+                        }
+
+                        return instances
+                                .OrderBy(func => func.FunctionName, StringComparer.Ordinal) // 表示順を安定化
+                                .ToArray();
+                }
+
+                /// <summary>前回選択したインポート種別を読み込みます。</summary>
+                /// <param name="subFunctions">利用可能なサブ機能一覧</param>
+		private void LoadLastSelection(ISubFunction[] subFunctions) {
+			m_isLastSelectionLoaded = true; // 二重適用を防止
+
+			if(m_settings == null) {
+				return; // 設定未初期化時は既定値を使用
 			}
 
-			if(instances.Count == 0) {
-				Debug.LogWarning("ISubFunctionを実装したクラスが見つかりませんでした。"); // 未検出時に注意喚起
+			var lastTypeName = m_settings.LastImportTypeFullName; // 設定ファイルに保存した型名を取得
+
+			if(string.IsNullOrEmpty(lastTypeName)) {
+				return; // 保存データが無ければ既定値のまま使用
 			}
 
-			return instances
-				.OrderBy(func => func.FunctionName, StringComparer.Ordinal) // 表示順を安定化
-				.ToArray();
+			var storedIndex = Array.FindIndex(subFunctions, func => func?.GetType().FullName == lastTypeName); // 型名一致を探索
+
+			if(storedIndex >= 0) {
+				m_selectedSubFunctionIndex = storedIndex; // 一致した場合に前回選択を復元
+			}
+		}
+
+		/// <summary>選択したインポート種別を永続化します。</summary>
+		/// <param name="subFunction">現在選択しているサブ機能</param>
+		private void PersistLastSelection(ISubFunction subFunction) {
+			if(m_settings == null) {
+				return; // 設定参照が無い場合は保存できない
+			}
+
+			var newTypeName = subFunction?.GetType().FullName ?? string.Empty; // 保存対象の型名を決定
+
+			if(m_settings.LastImportTypeFullName == newTypeName) {
+				return; // 既存値と同じ場合は保存処理を省略
+			}
+
+			m_settings.LastImportTypeFullName = newTypeName; // 設定オブジェクトに最新値を反映
+
+			try {
+				NotionImporterSettings.SaveSetting(m_settings); // 設定ファイルへ書き戻して永続化
+			} catch(Exception ex) {
+				Debug.LogWarning($"インポート種別の保存に失敗しました: {ex.Message}\n{ex}"); // 保存失敗時は警告で通知
+			}
 		}
 
 		}

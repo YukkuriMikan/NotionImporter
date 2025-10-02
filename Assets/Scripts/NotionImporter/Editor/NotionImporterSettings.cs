@@ -17,10 +17,19 @@ namespace NotionImporter {
 
 		private string m_definitionName; // インポート定義名の内部保持用データ
 
+		[SerializeField]
+		private string m_lastImportTypeFullName; // 最後に選択したインポート種別の型名
+
 		/// <summary>インポート定義名</summary>
 		public string DefinitionName {
 			get => m_definitionName?.Replace('/', '／'); // スラッシュは全角に置換
 			set => m_definitionName = value?.Replace('/', '／');
+		}
+
+		/// <summary>最後に選択したインポート種別の型名</summary>
+		public string LastImportTypeFullName {
+			get => m_lastImportTypeFullName; // 保存済みの型名をそのまま返却
+			set => m_lastImportTypeFullName = value; // 型名を更新して永続化対象にする
 		}
 
 		public NotionObject[] objects; // インポート対象のNotionデータベース
