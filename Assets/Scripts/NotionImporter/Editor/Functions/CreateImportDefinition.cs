@@ -30,7 +30,7 @@ namespace NotionImporter.Functions {
 		/// <summary>選択中のサブ機能インデックスを取得または設定します。</summary>
 		public int SelectedSubFunctionIndex {
 			get => m_selectedSubFunctionIndex;
-			set => m_selectedSubFunctionIndex = value;
+			set => m_selectedSubFunctionIndex = Mathf.Clamp(value, 0, Mathf.Max(0, SubFunctions.Length - 1)); // 無効なインデックスを防ぐ
 		}
 
 		private TreeViewState m_treeViewState; // ツリービューの状態
@@ -171,33 +171,23 @@ namespace NotionImporter.Functions {
 		/// <summary>ISubFunctionを実装したクラスをリフレクションで収集します。</summary>
 		private static ISubFunction[] LoadSubFunctions() {
 			var instances = new List<ISubFunction>(); // 生成したサブ機能を蓄積
-			var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-			foreach (var assembly in assemblies) {
-				Type[] types;
-				try {
-					types = assembly.GetTypes();
-				} catch(ReflectionTypeLoadException ex) {
-					types = ex.Types.Where(type => type != null).ToArray(); // 読み込み失敗分を除外
+      foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
+				if(type.IsAbstract) {
+					continue; // 抽象クラスはインスタンス化できない
 				}
 
-				foreach (var type in types) {
-					if(type == null || type.IsAbstract || !typeof(ISubFunction).IsAssignableFrom(type)) {
-						continue; // ISubFunctionを実装した具象型以外は対象外
-					}
+				if(type.GetConstructor(Type.EmptyTypes) == null) {
+					continue; // 引数なしコンストラクタが無い型は生成不可なのでスキップ
+				}
 
-					if(type.GetConstructor(Type.EmptyTypes) == null) {
-						continue; // 引数なしコンストラクタが無い型は生成不可なのでスキップ
+				try {
+					var instance = (ISubFunction)Activator.CreateInstance(type);
+					if(instance != null) {
+						instances.Add(instance);
 					}
-
-					try {
-						var instance = (ISubFunction)Activator.CreateInstance(type);
-						if(instance != null) {
-							instances.Add(instance);
-						}
-					} catch(Exception ex) {
-						Debug.LogWarning($"ISubFunctionの生成に失敗しました: {type.FullName}\n{ex}"); // 生成エラーを通知
-					}
+				} catch(Exception ex) {
+					Debug.LogWarning($"ISubFunctionの生成に失敗しました: {type.FullName}\n{ex}"); // 生成エラーを通知
 				}
 			}
 
@@ -205,7 +195,9 @@ namespace NotionImporter.Functions {
 				Debug.LogWarning("ISubFunctionを実装したクラスが見つかりませんでした。"); // 未検出時に注意喚起
 			}
 
-			return instances.ToArray();
+			return instances
+				.OrderBy(func => func.FunctionName, StringComparer.Ordinal) // 表示順を安定化
+				.ToArray();
 		}
 
 		}
