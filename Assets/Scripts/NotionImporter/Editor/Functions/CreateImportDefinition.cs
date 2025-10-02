@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NotionImporter.Functions.SubFunction;
@@ -12,12 +14,10 @@ namespace NotionImporter.Functions {
 
 		private MainImportWindow m_parent; // 親ウィンドウ
 
-		private ISubFunction[] m_subFunctions = { // サブ機能の配列、追加機能がある時は初期化子に追加する
-			new CreateScriptableObjectDefinition(),
-		};
+		private ISubFunction[] m_subFunctions; // サブ機能のキャッシュ、リフレクションで自動収集する
 
 		/// <summary>利用可能なサブ機能の一覧を取得します。</summary>
-		public ISubFunction[] SubFunctions => m_subFunctions;
+		public ISubFunction[] SubFunctions => m_subFunctions ??= LoadSubFunctions();
 
 		/// <summary>機能名を取得します。</summary>
 		public string FunctionName => "Notionインポート定義作成";
@@ -29,7 +29,7 @@ namespace NotionImporter.Functions {
 		/// <summary>選択中のサブ機能インデックスを取得または設定します。</summary>
 		public int SelectedSubFunctionIndex {
 			get => m_selectedSubFunctionIndex;
-			set => m_selectedSubFunctionIndex = value;
+			set => m_selectedSubFunctionIndex = Mathf.Clamp(value, 0, Mathf.Max(0, SubFunctions.Length - 1)); // 無効なインデックスを防ぐ
 		}
 
 		private TreeViewState m_treeViewState; // ツリービューの状態
@@ -44,7 +44,13 @@ namespace NotionImporter.Functions {
 			m_parent = parent; // 親ウィンドウと設定情報を保持
 			m_settings = settings;
 
-			foreach (var func in m_subFunctions) {
+			var subFunctions = SubFunctions; // 利用可能なサブ機能一覧を取得
+			if(subFunctions.Length == 0) {
+				EditorGUILayout.HelpBox("利用可能なサブ機能が見つかりません。", MessageType.Warning); // 何も無ければ早期終了
+				return;
+			}
+
+			foreach (var func in subFunctions) {
 				func.ParentFunction = this;
 			}
 
@@ -52,13 +58,15 @@ namespace NotionImporter.Functions {
 				DrawDefinitionNameSetting();
 				DrawOutputFolderSetting();
 
+				m_selectedSubFunctionIndex = Mathf.Clamp(m_selectedSubFunctionIndex, 0, subFunctions.Length - 1); // 配列外参照の防止
+
 				m_selectedSubFunctionIndex = EditorGUILayout.Popup("インポート種別", m_selectedSubFunctionIndex, // サブ機能をドロップダウンリストで表示
-					m_subFunctions.Select(func => func.FunctionName).ToArray());
+					subFunctions.Select(func => func.FunctionName).ToArray());
 
 				using (new EditorGUILayout.HorizontalScope()) {
 					DrawNotionTree();
 
-					m_subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
+					subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
 				}
 
 				DrawFooter();
@@ -155,13 +163,42 @@ namespace NotionImporter.Functions {
 		/// <summary>インポート定義作成ボタンを描画します。</summary>
 		private void DrawFooter() {
 			if(GUILayout.Button("インポート定義作成")) { // 定義作成処理のトリガーボタン
-
-
-				m_subFunctions[m_selectedSubFunctionIndex].CreateFile();
-
+				SubFunctions[m_selectedSubFunctionIndex].CreateFile(); // リフレクションで取得した機能を実行
 			}
 		}
 
-	}
+		/// <summary>ISubFunctionを実装したクラスをリフレクションで収集します。</summary>
+		private static ISubFunction[] LoadSubFunctions() {
+			var instances = new List<ISubFunction>(); // 生成したサブ機能を蓄積
+			foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
+				if(type.IsAbstract) {
+					continue; // 抽象クラスはインスタンス化できない
+				}
+
+				if(type.GetConstructor(Type.EmptyTypes) == null) {
+					continue; // 引数なしコンストラクタが無い型は生成不可なのでスキップ
+				}
+
+				try {
+					var instance = (ISubFunction)Activator.CreateInstance(type);
+					if(instance != null) {
+						instances.Add(instance);
+					}
+				} catch(Exception ex) {
+					Debug.LogWarning($"ISubFunctionの生成に失敗しました: {type.FullName}\n{ex}"); // 生成エラーを通知
+				}
+			}
+
+			if(instances.Count == 0) {
+				Debug.LogWarning("ISubFunctionを実装したクラスが見つかりませんでした。"); // 未検出時に注意喚起
+			}
+
+			return instances
+				.OrderBy(func => func.FunctionName, StringComparer.Ordinal) // 表示順を安定化
+				.ToArray();
+		}
+
+		}
 
 }
+
