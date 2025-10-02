@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NotionImporter.Functions.SubFunction;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
@@ -170,7 +171,8 @@ namespace NotionImporter.Functions {
 		/// <summary>ISubFunctionを実装したクラスをリフレクションで収集します。</summary>
 		private static ISubFunction[] LoadSubFunctions() {
 			var instances = new List<ISubFunction>(); // 生成したサブ機能を蓄積
-			foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
+
+      foreach (var type in TypeCache.GetTypesDerivedFrom<ISubFunction>()) {
 				if(type.IsAbstract) {
 					continue; // 抽象クラスはインスタンス化できない
 				}
