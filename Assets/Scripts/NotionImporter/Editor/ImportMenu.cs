@@ -15,8 +15,6 @@ namespace NotionImporter {
 	/// <summary>NotionImporterのメニュー項目を管理します。</summary>
 	public class ImportMenu {
 
-		private const string ASSEMBLY_NAME = "NotionImporter"; // 出力処理を検索する対象アセンブリ名
-
 		private static IOutputFunction[] m_outputFunctions = Array.Empty<IOutputFunction>(); // 利用可能な出力処理一覧
 
 
@@ -55,6 +53,31 @@ namespace NotionImporter {
                                 .OrderBy(instance => instance.GetType().FullName, StringComparer.Ordinal) // 表示順を安定化
                                 .ToArray();
                 }
+
+		/// <summary>定義名から対応するインポート型を全アセンブリから検索します。</summary>
+		private static Type ResolveImportType(string typeString) {
+			var candidateNames = new List<string>();
+
+			if(!string.IsNullOrWhiteSpace(typeString)) {
+				if(!typeString.Contains('.')) {
+					candidateNames.Add($"NotionImporter.{typeString}");
+				}
+
+				candidateNames.Add(typeString); // 完全修飾名指定時にも対応するため生文字列も追加
+			}
+
+			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+				foreach (var candidate in candidateNames) {
+					var type = assembly.GetType(candidate, false);
+
+					if(type != null) {
+						return type; // 最初に一致した型を返し探索を終了
+					}
+				}
+			}
+
+			return null; // 対応する型が存在しない場合はnullを返す
+		}
 
 		/// <summary> ツールバーのインポートメニューを更新する </summary>
 		public async static UniTask RefreshImportMenu() {
@@ -96,7 +119,7 @@ namespace NotionImporter {
 		private async static UniTask Import(string typeString, string fileFullPath) {
 			m_outputFunctions = LoadOutputFunctions(); // ツールバー経由でも出力処理を確実に再ロードする
 
-			var importType = Type.GetType($"NotionImporter.{typeString}, {ASSEMBLY_NAME}");
+			var importType = ResolveImportType(typeString);
 			var importDefJson = File.ReadAllText(fileFullPath);
 			var subFunc = m_outputFunctions.FirstOrDefault(func => func.DefinitionType == importType);
 
