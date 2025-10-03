@@ -2,7 +2,7 @@
     "name": "com.anest.notionimporter",
     "displayName": "Notion Importer",
     "author": { "name": "Mikan Yukkuri", "url": "https://github.com/YukkuriMikan" },
-    "version": "1.0.4",
+    "version": "1.0.5",
     "unity": "2021.3",
     "description": "Import Notion data into Unity.",
     "dependencies": {
