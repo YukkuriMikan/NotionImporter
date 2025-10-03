@@ -26,27 +26,35 @@ namespace NotionImporter {
 		}
 
 		/// <summary>リフレクションで出力処理を収集します。</summary>
-		private static IOutputFunction[] LoadOutputFunctions() {
-			var targetAssembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == ASSEMBLY_NAME); // 対象アセンブリを検索
+                private static IOutputFunction[] LoadOutputFunctions() {
+                        var instances = new List<IOutputFunction>(); // すべてのアセンブリから出力機能を収集
 
-			if(targetAssembly == null) {
-				Debug.LogWarning($"出力処理アセンブリ「{ASSEMBLY_NAME}」が見つかりませんでした。"); // 取得失敗を通知
-				return Array.Empty<IOutputFunction>();
-			}
+                        foreach (var type in TypeCache.GetTypesDerivedFrom<IOutputFunction>()) {
+                                if(type.IsAbstract || type.IsInterface) {
+                                        continue; // 生成不能な型はスキップ
+                                }
 
-			return targetAssembly.GetTypes()
-				.Where(type => typeof(IOutputFunction).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
-				.Select(type => {
-					try {
-						return Activator.CreateInstance(type) as IOutputFunction; // 生成成功時のみ採用
-					} catch(Exception ex) {
-						Debug.LogError($"出力処理の生成に失敗しました: {type.FullName}\n{ex}");
-						return null;
-					}
-				})
-				.Where(instance => instance != null)
-				.ToArray();
-		}
+                                if(type.GetConstructor(Type.EmptyTypes) == null) {
+                                        continue; // 引数無しコンストラクタが無い型は除外
+                                }
+
+                                try {
+                                        if(Activator.CreateInstance(type) is IOutputFunction instance) {
+                                                instances.Add(instance); // 生成に成功した型のみ採用
+                                        }
+                                } catch(Exception ex) {
+                                        Debug.LogError($"出力処理の生成に失敗しました: {type.FullName}\n{ex}"); // 生成失敗を通知
+                                }
+                        }
+
+                        if(instances.Count == 0) {
+                                Debug.LogWarning("利用可能な出力処理が見つかりませんでした。"); // 未検出時は警告を表示
+                        }
+
+                        return instances
+                                .OrderBy(instance => instance.GetType().FullName, StringComparer.Ordinal) // 表示順を安定化
+                                .ToArray();
+                }
 
 		/// <summary> ツールバーのインポートメニューを更新する </summary>
 		public async static UniTask RefreshImportMenu() {
