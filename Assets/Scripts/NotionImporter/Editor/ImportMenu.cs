@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using NotionImporter.Functions;
 using NotionImporter.Functions.Output;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +18,7 @@ namespace NotionImporter {
 		private const string ASSEMBLY_NAME = "NotionImporter"; // 出力処理を検索する対象アセンブリ名
 
 		private static IOutputFunction[] m_outputFunctions = Array.Empty<IOutputFunction>(); // 利用可能な出力処理一覧
+
 
 		static ImportMenu() {
 			m_outputFunctions = LoadOutputFunctions();
@@ -84,6 +86,8 @@ namespace NotionImporter {
 		/// <param name="typeString">インポート処理型の文字列</param>
 		/// <param name="fileFullPath">定義ファイルのフルパス</param>
 		private async static UniTask Import(string typeString, string fileFullPath) {
+			m_outputFunctions = LoadOutputFunctions(); // ツールバー経由でも出力処理を確実に再ロードする
+
 			var importType = Type.GetType($"NotionImporter.{typeString}, {ASSEMBLY_NAME}");
 			var importDefJson = File.ReadAllText(fileFullPath);
 			var subFunc = m_outputFunctions.FirstOrDefault(func => func.DefinitionType == importType);
@@ -168,6 +172,7 @@ namespace NotionImporter {
 				fileName,
 				importSettings, importDef, pages.ToArray()); // インポート定義に適合するアウトプットの実装を実行し、取得したページを出力処理する
 		}
+
 
 	}
 
