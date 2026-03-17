@@ -173,24 +173,25 @@ namespace NotionImporter.Functions.Output {
 
 		public ImportDefinitionBase Deserialize(string json) => JsonUtility.FromJson<ScriptableObjectImportDefinition>(json);
 
-                public void OutputArrayScriptableObject(ScriptableObjectImportDefinition def, string assetName, object[] soValues, Type soType) {
-                        var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{assetName}.asset", soType);
-                        ScriptableObject so = default;
+		public void OutputArrayScriptableObject(ScriptableObjectImportDefinition def, string assetName, object[] soValues, Type soType) {
+			var existFile = AssetDatabase.LoadAssetAtPath(def.outputPath + $"\\{assetName}.asset", soType);
+			ScriptableObject so = default;
 
-                        if(existFile != null) {
-                                so = (ScriptableObject)existFile;
-                        } else {
-                                so = ScriptableObject.CreateInstance(soType);
-                                AssetDatabase.CreateAsset(so, def.outputPath + $"\\{assetName}.asset");
-                        }
+			if(existFile != null) {
+				so = (ScriptableObject)existFile;
+			} else {
+				so = ScriptableObject.CreateInstance(soType);
+				AssetDatabase.CreateAsset(so, def.outputPath + $"\\{assetName}.asset");
+			}
 
-                        soValues = SortCollectionIfNeeded(def, soValues); // 出力直前に並べ替えを適用
+			soValues = SortCollectionIfNeeded(def, soValues); // 出力直前に並べ替えを適用
+			soValues = ReuseArrayElementsIfMatched(so, def, soValues); // == で一致する既存要素を再利用
 
-                        var arrayType = def.targetFieldType.targetType; // キー列設定あり
-                        var instance = Activator.CreateInstance(arrayType, soValues.Length);
-                        var array = instance as Array;
+			var arrayType = def.targetFieldType.targetType; // キー列設定あり
+			var instance = Activator.CreateInstance(arrayType, soValues.Length);
+			var array = instance as Array;
 
-                        for (int i = 0; i < soValues.Length; i++) {
+			for (int i = 0; i < soValues.Length; i++) {
 				array.SetValue(soValues[i], i);
 			}
 
@@ -198,38 +199,79 @@ namespace NotionImporter.Functions.Output {
 
 			EditorUtility.SetDirty(so);
 			AssetDatabase.SaveAssets();
-                        Debug.Log($"NotionImporter: {assetName} Imported.");
-                }
+			Debug.Log($"NotionImporter: {assetName} Imported.");
+		}
 
-                private object[] SortCollectionIfNeeded(ScriptableObjectImportDefinition def, object[] soValues) { // 並べ替え処理の入口
-                        if(def == null || soValues == null || soValues.Length <= 1) {
-                                return soValues; // nullや単要素はそのまま返す
-                        }
+		private object[] ReuseArrayElementsIfMatched(ScriptableObject so, ScriptableObjectImportDefinition def, object[] soValues) { // 既存配列と==一致する要素を使い回す
+			if(so == null || def == null || soValues == null || soValues.Length == 0 || string.IsNullOrWhiteSpace(def.targetFieldName)) {
+				return soValues;
+			}
 
-                        if(string.IsNullOrEmpty(def.sortKey) || def.targetFieldType?.targetType == null) {
-                                return soValues; // ソートが不要なケース
-                        }
+			var field = so.GetType().GetField(def.targetFieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                        var elementType = GetCollectionElementType(def.targetFieldType.targetType);
+			if(field == null) {
+				return soValues;
+			}
 
-                        if(elementType == null) {
-                                return soValues; // 要素型が特定できない場合はスキップ
-                        }
+			if(!(field.GetValue(so) is Array existingArray) || existingArray.Length == 0) {
+				return soValues;
+			}
 
-                        var sortField = elementType.GetField(def.sortKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			var existingItems = existingArray.Cast<object>().ToArray();
+			var used = new bool[existingItems.Length];
 
-                        if(sortField == null) {
-                                Debug.LogWarning($"NotionImporter: ソートキー「{def.sortKey}」が型「{elementType.FullName}」に見つかりませんでした。");
+			for (int i = 0; i < soValues.Length; i++) {
+				for (int j = 0; j < existingItems.Length; j++) {
+					if(used[j]) continue;
 
-                                return soValues;
-                        }
+					if(IsDoubleEqual(existingItems[j], soValues[i])) {
+						soValues[i] = existingItems[j];
+						used[j] = true;
 
-                        var sorted = soValues.ToArray();
+						break;
+					}
+				}
+			}
 
-                        Array.Sort(sorted, (left, right) => CompareSortValues(sortField.GetValue(left), sortField.GetValue(right), def.sortOrder));
+			return soValues;
+		}
 
-                        return sorted;
-                }
+		private static bool IsDoubleEqual(object left, object right) { // == 演算子定義がある型はそれを尊重する
+			dynamic dynamicLeft = left;
+			dynamic dynamicRight = right;
+
+			return dynamicLeft == dynamicRight;
+		}
+
+		private object[] SortCollectionIfNeeded(ScriptableObjectImportDefinition def, object[] soValues) { // 並べ替え処理の入口
+			if(def == null || soValues == null || soValues.Length <= 1) {
+				return soValues; // nullや単要素はそのまま返す
+			}
+
+			if(string.IsNullOrEmpty(def.sortKey) || def.targetFieldType?.targetType == null) {
+				return soValues; // ソートが不要なケース
+			}
+
+			var elementType = GetCollectionElementType(def.targetFieldType.targetType);
+
+			if(elementType == null) {
+				return soValues; // 要素型が特定できない場合はスキップ
+			}
+
+			var sortField = elementType.GetField(def.sortKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+			if(sortField == null) {
+				Debug.LogWarning($"NotionImporter: ソートキー「{def.sortKey}」が型「{elementType.FullName}」に見つかりませんでした。");
+
+				return soValues;
+			}
+
+			var sorted = soValues.ToArray();
+
+			Array.Sort(sorted, (left, right) => CompareSortValues(sortField.GetValue(left), sortField.GetValue(right), def.sortOrder));
+
+			return sorted;
+		}
 
                 private static Type GetCollectionElementType(Type collectionType) { // 定義されたコレクションから要素型を推定
                         if(collectionType == null) {
