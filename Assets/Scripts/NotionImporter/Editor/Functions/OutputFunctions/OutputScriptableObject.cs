@@ -185,7 +185,7 @@ namespace NotionImporter.Functions.Output {
 			}
 
 			soValues = SortCollectionIfNeeded(def, soValues); // 出力直前に並べ替えを適用
-			soValues = ReuseArrayElementsIfMatched(so, def, soValues); // == で一致する既存要素を再利用
+			soValues = ReuseArrayElementsIfMatched(so, def, soValues); // Equals一致する既存要素を再利用（struct対応）
 
 			var arrayType = def.targetFieldType.targetType; // キー列設定あり
 			var instance = Activator.CreateInstance(arrayType, soValues.Length);
@@ -202,7 +202,7 @@ namespace NotionImporter.Functions.Output {
 			Debug.Log($"NotionImporter: {assetName} Imported.");
 		}
 
-		private object[] ReuseArrayElementsIfMatched(ScriptableObject so, ScriptableObjectImportDefinition def, object[] soValues) { // 既存配列と==一致する要素を使い回す
+		private object[] ReuseArrayElementsIfMatched(ScriptableObject so, ScriptableObjectImportDefinition def, object[] soValues) { // 既存配列とEquals一致する要素を使い回す
 			if(so == null || def == null || soValues == null || soValues.Length == 0 || string.IsNullOrWhiteSpace(def.targetFieldName)) {
 				return soValues;
 			}
@@ -236,11 +236,8 @@ namespace NotionImporter.Functions.Output {
 			return soValues;
 		}
 
-		private static bool IsDoubleEqual(object left, object right) { // == 演算子定義がある型はそれを尊重する
-			dynamic dynamicLeft = left;
-			dynamic dynamicRight = right;
-
-			return dynamicLeft == dynamicRight;
+		private static bool IsDoubleEqual(object left, object right) { // structを含む要素比較はEqualsで統一
+			return Equals(left, right);
 		}
 
 		private object[] SortCollectionIfNeeded(ScriptableObjectImportDefinition def, object[] soValues) { // 並べ替え処理の入口
