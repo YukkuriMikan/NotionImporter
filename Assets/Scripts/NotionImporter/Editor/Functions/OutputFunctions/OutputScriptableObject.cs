@@ -13,6 +13,14 @@ namespace NotionImporter.Functions.Output {
 	/// <summary> スクリプタブルオブジェクトを出力 </summary>
 	public class OutputScriptableObject : IOutputFunction {
 
+		private class SortFieldRule {
+
+			public FieldInfo fieldInfo; // 比較に使うフィールド情報
+
+			public SortOrder sortOrder; // このキーでの並び順
+
+		}
+
 		public Type DefinitionType
 			=> typeof(ScriptableObjectImportDefinition);
 
@@ -245,7 +253,7 @@ namespace NotionImporter.Functions.Output {
 				return soValues; // nullや単要素はそのまま返す
 			}
 
-			if(string.IsNullOrEmpty(def.sortKey) || def.targetFieldType?.targetType == null) {
+			if(def.targetFieldType?.targetType == null) {
 				return soValues; // ソートが不要なケース
 			}
 
@@ -255,65 +263,118 @@ namespace NotionImporter.Functions.Output {
 				return soValues; // 要素型が特定できない場合はスキップ
 			}
 
-			var sortField = elementType.GetField(def.sortKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			var sortRules = BuildSortRules(def, elementType);
 
-			if(sortField == null) {
-				Debug.LogWarning($"NotionImporter: ソートキー「{def.sortKey}」が型「{elementType.FullName}」に見つかりませんでした。");
-
+			if(sortRules.Length == 0) {
 				return soValues;
 			}
 
 			var sorted = soValues.ToArray();
 
-			Array.Sort(sorted, (left, right) => CompareSortValues(sortField.GetValue(left), sortField.GetValue(right), def.sortOrder));
+			Array.Sort(sorted, (left, right) => CompareSortByRules(left, right, sortRules));
 
 			return sorted;
 		}
 
-                private static Type GetCollectionElementType(Type collectionType) { // 定義されたコレクションから要素型を推定
-                        if(collectionType == null) {
-                                return null;
-                        }
+		private SortFieldRule[] BuildSortRules(ScriptableObjectImportDefinition def, Type elementType) { // 有効なソートキーのみ抽出
+			var rawConditions = GetEffectiveSortConditions(def);
+			var result = rawConditions
+				.Where(condition => !string.IsNullOrEmpty(condition?.sortKey))
+				.Select(condition => new {
+					condition.sortKey,
+					condition.sortOrder,
+					fieldInfo = elementType.GetField(condition.sortKey, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+				})
+				.Where(item => {
+					if(item.fieldInfo != null) {
+						return true;
+					}
 
-                        if(collectionType.IsArray) {
-                                return collectionType.GetElementType();
-                        }
+					Debug.LogWarning($"NotionImporter: ソートキー「{item.sortKey}」が型「{elementType.FullName}」に見つかりませんでした。");
+					return false;
+				})
+				.Select(item => new SortFieldRule {
+					fieldInfo = item.fieldInfo,
+					sortOrder = item.sortOrder,
+				})
+				.ToArray();
 
-                        if(collectionType.IsGenericType && collectionType.GetGenericArguments().Length == 1) {
-                                return collectionType.GetGenericArguments()[0];
-                        }
+			return result;
+		}
 
-                        return null;
-                }
+		private static SortCondition[] GetEffectiveSortConditions(ScriptableObjectImportDefinition def) { // 新仕様優先、旧仕様へフォールバック
+			if(def.sortConditions != null && def.sortConditions.Length > 0) {
+				return def.sortConditions;
+			}
 
-                private static int CompareSortValues(object left, object right, SortOrder order) { // ソート順に応じて比較結果を調整
-                        var result = CompareRawValues(left, right);
+			if(!string.IsNullOrEmpty(def.sortKey)) {
+				return new[] {
+					new SortCondition {
+						sortKey = def.sortKey,
+						sortOrder = def.sortOrder,
+					}
+				};
+			}
 
-                        return order == SortOrder.Ascending ? result : -result; // 降順は符号反転
-                }
+			return Array.Empty<SortCondition>();
+		}
 
-                private static int CompareRawValues(object left, object right) { // nullや比較不能な値を安全に処理
-                        if(left == null && right == null) {
-                                return 0;
-                        }
+		private static int CompareSortByRules(object left, object right, SortFieldRule[] sortRules) { // 複数キーを順番に比較
+			foreach (var rule in sortRules) {
+				var compared = CompareSortValues(rule.fieldInfo.GetValue(left), rule.fieldInfo.GetValue(right), rule.sortOrder);
 
-                        if(left == null) {
-                                return -1;
-                        }
+				if(compared != 0) {
+					return compared;
+				}
+			}
 
-                        if(right == null) {
-                                return 1;
-                        }
+			return 0;
+		}
 
-                        if(left is IComparable leftComparable && right is IComparable rightComparable) {
-                                return leftComparable.CompareTo(rightComparable);
-                        }
+		private static Type GetCollectionElementType(Type collectionType) { // 定義されたコレクションから要素型を推定
+			if(collectionType == null) {
+				return null;
+			}
 
-                        var leftText = left?.ToString();
-                        var rightText = right?.ToString();
+			if(collectionType.IsArray) {
+				return collectionType.GetElementType();
+			}
 
-                        return string.Compare(leftText, rightText, StringComparison.Ordinal);
-                }
+			if(collectionType.IsGenericType && collectionType.GetGenericArguments().Length == 1) {
+				return collectionType.GetGenericArguments()[0];
+			}
+
+			return null;
+		}
+
+		private static int CompareSortValues(object left, object right, SortOrder order) { // ソート順に応じて比較結果を調整
+			var result = CompareRawValues(left, right);
+
+			return order == SortOrder.Ascending ? result : -result; // 降順は符号反転
+		}
+
+		private static int CompareRawValues(object left, object right) { // nullや比較不能な値を安全に処理
+			if(left == null && right == null) {
+				return 0;
+			}
+
+			if(left == null) {
+				return -1;
+			}
+
+			if(right == null) {
+				return 1;
+			}
+
+			if(left is IComparable leftComparable && right is IComparable rightComparable) {
+				return leftComparable.CompareTo(rightComparable);
+			}
+
+			var leftText = left?.ToString();
+			var rightText = right?.ToString();
+
+			return string.Compare(leftText, rightText, StringComparison.Ordinal);
+		}
 
                 private object SetObjectField(object targetObject, string fieldName, string value) {
                         var field = targetObject.GetType()

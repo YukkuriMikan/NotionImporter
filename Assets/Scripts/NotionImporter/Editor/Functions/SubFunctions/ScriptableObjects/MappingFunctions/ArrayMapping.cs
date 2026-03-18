@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -64,59 +65,118 @@ namespace NotionImporter.Functions.SubFunction.ScriptableObjects {
                                 m_settings.KeyId = null;
                         }
 
-                        m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
+			m_settings.UseKeyFiltering = EditorGUILayout.ToggleLeft("出力時にフィルタリングを行う", m_settings.UseKeyFiltering);
 
-                        var mappingItems = MethodMappingItems ?? Array.Empty<MappingItem>(); // ソート候補となるフィールド群
-                        var sortKeyLabels = new string[mappingItems.Length + 1];
-                        var sortKeyValues = new string[mappingItems.Length + 1];
+			var mappingItems = MethodMappingItems ?? Array.Empty<MappingItem>(); // ソート候補となるフィールド群
+			var sortKeyLabels = new string[mappingItems.Length + 1];
+			var sortKeyValues = new string[mappingItems.Length + 1];
 
-                        sortKeyLabels[0] = "（ソートしない）";
-                        sortKeyValues[0] = string.Empty;
+			sortKeyLabels[0] = "（ソートしない）";
+			sortKeyValues[0] = string.Empty;
 
-                        for (var i = 0; i < mappingItems.Length; i++) {
-                                var item = mappingItems[i];
+			for (var i = 0; i < mappingItems.Length; i++) {
+				var item = mappingItems[i];
 
-                                sortKeyLabels[i + 1] = $"{item.fieldName}:{item.fieldInfo?.FieldType.Name}";
-                                sortKeyValues[i + 1] = item.fieldName;
-                        }
+				sortKeyLabels[i + 1] = $"{item.fieldName}:{item.fieldInfo?.FieldType.Name}";
+				sortKeyValues[i + 1] = item.fieldName;
+			}
 
-                        var currentSortKey = string.IsNullOrEmpty(m_settings.SortKey) ? string.Empty : m_settings.SortKey;
-                        var sortKeyIndex = Array.IndexOf(sortKeyValues, currentSortKey);
+			var sortConditions = BuildEditableSortConditions();
+			int removeAt = -1; // 描画中に削除が押された行番号を後で反映
 
-                        if(sortKeyIndex < 0) {
-                                sortKeyIndex = 0;
-                                m_settings.SortKey = null;
-                        }
+			for (var i = 0; i < sortConditions.Count; i++) {
+				var condition = sortConditions[i];
+				var currentSortKey = string.IsNullOrEmpty(condition.sortKey) ? string.Empty : condition.sortKey;
+				var sortKeyIndex = Array.IndexOf(sortKeyValues, currentSortKey);
 
-                        using (new EditorGUILayout.HorizontalScope()) {
-                                EditorGUILayout.LabelField("ソートキー", GUILayout.Width(80));
-                                sortKeyIndex = EditorGUILayout.Popup(sortKeyIndex, sortKeyLabels);
-                        }
+				if(sortKeyIndex < 0) {
+					sortKeyIndex = 0;
+					condition.sortKey = null;
+				}
 
-                        m_settings.SortKey = sortKeyIndex <= 0 ? null : sortKeyValues[sortKeyIndex]; // 選択したフィールド名を保存
+				using (new EditorGUILayout.HorizontalScope()) {
+					EditorGUILayout.LabelField($"第{i + 1}キー", GUILayout.Width(80));
+					sortKeyIndex = EditorGUILayout.Popup(sortKeyIndex, sortKeyLabels);
+					condition.sortKey = sortKeyIndex <= 0 ? null : sortKeyValues[sortKeyIndex];
 
-                        using (new EditorGUILayout.HorizontalScope()) {
-                                EditorGUILayout.LabelField("ソート順", GUILayout.Width(80));
+					using (new EditorGUI.DisabledScope(sortKeyIndex == 0)) {
+						var sortOrderLabels = new[] {
+							"昇順",
+							"降順",
+						};
 
-                                using (new EditorGUI.DisabledScope(sortKeyIndex == 0)) {
-                                        var sortOrderLabels = new[] {
-                                                "昇順",
-                                                "降順",
-                                        };
+						var orderIndex = EditorGUILayout.Popup((int)condition.sortOrder, sortOrderLabels, GUILayout.Width(70));
+						orderIndex = Mathf.Clamp(orderIndex, 0, sortOrderLabels.Length - 1);
+						condition.sortOrder = (SortOrder)orderIndex;
+					}
 
-                                        var orderIndex = EditorGUILayout.Popup((int)m_settings.SortOrder, sortOrderLabels);
-                                        orderIndex = Mathf.Clamp(orderIndex, 0, sortOrderLabels.Length - 1);
-                                        m_settings.SortOrder = (SortOrder)orderIndex;
-                                }
-                        }
+					if(GUILayout.Button("削除", GUILayout.Width(44))) {
+						removeAt = i;
+					}
+				}
 
-                        if(sortKeyIndex == 0) {
-                                m_settings.SortOrder = SortOrder.Ascending; // ソートキー未指定時は初期化
-                        }
+				if(sortKeyIndex == 0) {
+					condition.sortOrder = SortOrder.Ascending; // キー未指定行は昇順に初期化
+				}
+			}
 
-                        GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
-                        EditorGUILayout.Space();
-                }
+			if(removeAt >= 0) {
+				sortConditions.RemoveAt(removeAt);
+			}
+
+			using (new EditorGUI.DisabledScope(mappingItems.Length == 0)) {
+				if(GUILayout.Button("ソートキーを追加")) {
+					sortConditions.Add(new SortCondition()); // 第2・第3キー追加用
+				}
+			}
+
+			ApplySortConditionToSettings(sortConditions);
+
+			GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
+			EditorGUILayout.Space();
+		}
+
+		/// <summary>編集対象のソート条件配列を構築します。</summary>
+		private List<SortCondition> BuildEditableSortConditions() {
+			if(m_settings.SortConditions != null && m_settings.SortConditions.Length > 0) {
+				return m_settings.SortConditions
+					.Where(condition => condition != null)
+					.Select(condition => new SortCondition {
+						sortKey = condition.sortKey,
+						sortOrder = condition.sortOrder,
+					})
+					.ToList();
+			}
+
+			if(!string.IsNullOrEmpty(m_settings.SortKey)) {
+				return new List<SortCondition> {
+					new() {
+						sortKey = m_settings.SortKey,
+						sortOrder = m_settings.SortOrder,
+					}
+				};
+			}
+
+			return new List<SortCondition>();
+		}
+
+		/// <summary>UI編集結果を設定オブジェクトへ反映します。</summary>
+		private void ApplySortConditionToSettings(List<SortCondition> sortConditions) {
+			var sanitized = (sortConditions ?? new List<SortCondition>())
+				.Where(condition => condition != null)
+				.Select(condition => new SortCondition {
+					sortKey = condition.sortKey,
+					sortOrder = condition.sortOrder,
+				})
+				.ToArray();
+
+			m_settings.SortConditions = sanitized;
+
+			var firstActive = sanitized.FirstOrDefault(condition => !string.IsNullOrEmpty(condition.sortKey)); // 旧項目にも先頭キーを書き戻して互換維持
+
+			m_settings.SortKey = firstActive?.sortKey;
+			m_settings.SortOrder = firstActive?.sortOrder ?? SortOrder.Ascending;
+		}
 
 		public override void DrawMappingRow(MappingFunction func, MappingItem itm) {
 			var selectableNotionFieldsNothing = itm.targetProperties.Length == 0; // 配列向けのマッピング行を描画する際に、Notion側に一致フィールドがあるか確認
