@@ -73,12 +73,13 @@ namespace NotionImporter.Functions.SubFunction {
 				mappingMode = m_mappingFunction.MappingMode,
 				keyProperty = m_settings.KeyId,
 				useKeyFiltering = m_settings.UseKeyFiltering,
-                                targetFieldType = m_mappingFunction.CurrentMappingMethod.MethodTargetArrayType,
-                                targetFieldName = m_mappingFunction.CurrentMappingMethod.MethodTarget?.fieldName,
-                                mappingData = m_mappingFunction.CurrentMappingMethod.GetMappingData(),
-                                sortKey = m_settings.SortKey,
-                                sortOrder = m_settings.SortOrder,
-                        };
+				targetFieldType = m_mappingFunction.CurrentMappingMethod.MethodTargetArrayType,
+				targetFieldName = m_mappingFunction.CurrentMappingMethod.MethodTarget?.fieldName,
+				mappingData = m_mappingFunction.CurrentMappingMethod.GetMappingData(),
+				sortKey = m_settings.SortKey,
+				sortOrder = m_settings.SortOrder,
+				sortConditions = BuildDefinitionSortConditions(),
+			};
 
 			var jsonText = JsonUtility.ToJson(soSetting);
 
@@ -115,12 +116,14 @@ namespace NotionImporter.Functions.SubFunction {
 
 			m_settings.DefinitionName = definition.definitionName;
 			m_settings.OutputPath = definition.outputPath;
-                        m_settings.KeyId = definition.keyProperty;
-                        m_settings.UseKeyFiltering = definition.useKeyFiltering;
-                        m_settings.SortKey = definition.sortKey; // 並べ替え設定を復元
-                        m_settings.SortOrder = Enum.IsDefined(typeof(SortOrder), definition.sortOrder)
-                                ? definition.sortOrder
-                                : SortOrder.Ascending; // 互換性確保のため異常値は昇順扱い
+			m_settings.KeyId = definition.keyProperty;
+			m_settings.UseKeyFiltering = definition.useKeyFiltering;
+			m_settings.SortConditions = BuildSettingsSortConditions(definition);
+
+			var firstSortCondition = m_settings.SortConditions.FirstOrDefault(condition => !string.IsNullOrEmpty(condition.sortKey));
+
+			m_settings.SortKey = firstSortCondition?.sortKey;
+			m_settings.SortOrder = firstSortCondition?.sortOrder ?? SortOrder.Ascending;
 
 			m_typePaneFunction.EnsureTypeList(m_settings); // 型リストを確実に初期化
 
@@ -149,6 +152,58 @@ namespace NotionImporter.Functions.SubFunction {
 			}
 
 			ApplyMappingData(definition.mappingData);
+		}
+
+		/// <summary>定義ファイルへ保存するソート条件を構築します。</summary>
+		private SortCondition[] BuildDefinitionSortConditions() {
+			if(m_settings.SortConditions != null && m_settings.SortConditions.Length > 0) {
+				return m_settings.SortConditions
+					.Where(condition => condition != null)
+					.Select(condition => new SortCondition {
+						sortKey = condition.sortKey,
+						sortOrder = condition.sortOrder,
+					})
+					.ToArray();
+			}
+
+			if(!string.IsNullOrEmpty(m_settings.SortKey)) {
+				return new[] {
+					new SortCondition {
+						sortKey = m_settings.SortKey,
+						sortOrder = m_settings.SortOrder,
+					}
+				};
+			}
+
+			return Array.Empty<SortCondition>();
+		}
+
+		/// <summary>定義ファイルから読み込んだソート条件を設定へ復元します。</summary>
+		private SortCondition[] BuildSettingsSortConditions(ScriptableObjectImportDefinition definition) {
+			if(definition.sortConditions != null && definition.sortConditions.Length > 0) {
+				return definition.sortConditions
+					.Where(condition => condition != null)
+					.Select(condition => new SortCondition {
+						sortKey = condition.sortKey,
+						sortOrder = Enum.IsDefined(typeof(SortOrder), condition.sortOrder)
+							? condition.sortOrder
+							: SortOrder.Ascending,
+					})
+					.ToArray();
+			}
+
+			if(!string.IsNullOrEmpty(definition.sortKey)) {
+				return new[] {
+					new SortCondition {
+						sortKey = definition.sortKey,
+						sortOrder = Enum.IsDefined(typeof(SortOrder), definition.sortOrder)
+							? definition.sortOrder
+							: SortOrder.Ascending,
+					}
+				};
+			}
+
+			return Array.Empty<SortCondition>();
 		}
 
 		/// <summary>配列/リストマッピング設定を復元する</summary>
