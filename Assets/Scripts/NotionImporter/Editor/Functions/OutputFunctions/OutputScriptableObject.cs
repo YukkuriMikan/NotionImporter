@@ -232,7 +232,8 @@ namespace NotionImporter.Functions.Output {
 				for (int j = 0; j < existingItems.Length; j++) {
 					if(used[j]) continue;
 
-					if(IsDoubleEqual(existingItems[j], soValues[i])) {
+					if(Equals(existingItems[j], soValues[i])) {
+						UpdateObjectFields(existingItems[j], soValues[i], def); // 既存インスタンスの中身を更新
 						soValues[i] = existingItems[j];
 						used[j] = true;
 
@@ -244,8 +245,20 @@ namespace NotionImporter.Functions.Output {
 			return soValues;
 		}
 
-		private static bool IsDoubleEqual(object left, object right) { // structを含む要素比較はEqualsで統一
-			return Equals(left, right);
+		/// <summary>オブジェクトのフィールドを更新する</summary>
+		private void UpdateObjectFields(object target, object source, ScriptableObjectImportDefinition def) {
+			if(target == null || source == null || def.mappingData == null) return;
+
+			var type = target.GetType();
+			foreach (var data in def.mappingData) {
+				if(string.IsNullOrEmpty(data.targetFieldName)) continue;
+
+				var field = type.GetField(data.targetFieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+				if(field != null) {
+					var val = field.GetValue(source);
+					field.SetValue(target, val);
+				}
+			}
 		}
 
 		private object[] SortCollectionIfNeeded(ScriptableObjectImportDefinition def, object[] soValues) { // 並べ替え処理の入口
