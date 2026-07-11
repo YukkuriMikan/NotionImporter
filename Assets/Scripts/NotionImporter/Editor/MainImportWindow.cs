@@ -18,6 +18,7 @@ namespace NotionImporter {
 		private string m_currentStatusString; // 現在のステータス文言
 
 		private NotionConnector m_connector; // Notion接続管理
+		private Vector2 m_scrollPosition; // スクロール位置の保持
 		#endregion
 
 		#region Properties
@@ -63,24 +64,28 @@ namespace NotionImporter {
                         DrawToolBar();
                         #endregion
 
-                        using (new EditorGUILayout.VerticalScope(GUILayout.ExpandHeight(true))) { // メイン領域を縦並びに確保してフッターを下部に固定
-                                if(m_connector == null) { // 遅延初期化（OnGUIは複数回呼ばれるため、nullチェックで1度だけ生成）
-                                        ExecuteWithErrorHandling("Notionコネクタの生成", () => m_connector = new NotionConnector(this));
-                                }
+                        using (var scrollView = new EditorGUILayout.ScrollViewScope(m_scrollPosition)) { // 全体をスクロール可能にする
+                                m_scrollPosition = scrollView.scrollPosition;
 
-                                if(m_connector != null) {                                                   // コネクタ生成に成功した場合のみ後続処理を実行
-                                        ExecuteWithErrorHandling("初期接続処理", () => m_connector.InitialConnect()); // APIキーが設定済みであれば初回接続を行う（必要時のみ実行される想定）
-
-                                        DrawHeader();
-
-                                        if(m_connector.IsConnected) {
-                                                DrawFunctionArea(); // 機能タブの描画（現状は最初の機能のみ使用）
+                                using (new EditorGUILayout.VerticalScope(GUILayout.ExpandHeight(true))) { // メイン領域を縦並びに確保してフッターを下部に固定
+                                        if(m_connector == null) { // 遅延初期化（OnGUIは複数回呼ばれるため、nullチェックで1度だけ生成）
+                                                ExecuteWithErrorHandling("Notionコネクタの生成", () => m_connector = new NotionConnector(this));
                                         }
+
+                                        if(m_connector != null) {                                                   // コネクタ生成に成功した場合のみ後続処理を実行
+                                                ExecuteWithErrorHandling("初期接続処理", () => m_connector.InitialConnect()); // APIキーが設定済みであれば初回接続を行う（必要時のみ実行される想定）
+
+                                                DrawHeader();
+
+                                                if(m_connector.IsConnected) {
+                                                        DrawFunctionArea(); // 機能タブの描画（現状は最初の機能のみ使用）
+                                                }
+                                        }
+
+                                        GUILayout.FlexibleSpace(); // 余白を可変領域にし、下部のステータスバーを常に最下部へ配置
+
+                                        DrawFooter();
                                 }
-
-                                GUILayout.FlexibleSpace(); // 余白を可変領域にし、下部のステータスバーを常に最下部へ配置
-
-                                DrawFooter();
                         }
                 }
 		#endregion
