@@ -20,6 +20,9 @@ namespace NotionImporter.Functions {
 		/// <summary>Notionインポータの機能を描画する</summary>
 		public void DrawFunction(MainImportWindow parent, NotionImporterSettings settings);
 
+		/// <summary>下部に固定するフッターを描画する</summary>
+		public void DrawFooter();
+
 	}
 
 }

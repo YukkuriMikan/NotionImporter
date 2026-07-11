@@ -64,10 +64,10 @@ namespace NotionImporter {
                         DrawToolBar();
                         #endregion
 
-                        using (var scrollView = new EditorGUILayout.ScrollViewScope(m_scrollPosition)) { // 全体をスクロール可能にする
-                                m_scrollPosition = scrollView.scrollPosition;
+                        using (new EditorGUILayout.VerticalScope(GUILayout.ExpandHeight(true))) { // ウィンドウ全体の縦並びレイアウト
+                                using (var scrollView = new EditorGUILayout.ScrollViewScope(m_scrollPosition, GUILayout.ExpandHeight(true))) { // スクロール可能領域
+                                        m_scrollPosition = scrollView.scrollPosition;
 
-                                using (new EditorGUILayout.VerticalScope(GUILayout.ExpandHeight(true))) { // メイン領域を縦並びに確保してフッターを下部に固定
                                         if(m_connector == null) { // 遅延初期化（OnGUIは複数回呼ばれるため、nullチェックで1度だけ生成）
                                                 ExecuteWithErrorHandling("Notionコネクタの生成", () => m_connector = new NotionConnector(this));
                                         }
@@ -82,10 +82,13 @@ namespace NotionImporter {
                                                 }
                                         }
 
-                                        GUILayout.FlexibleSpace(); // 余白を可変領域にし、下部のステータスバーを常に最下部へ配置
-
-                                        DrawFooter();
+                                        GUILayout.FlexibleSpace(); // スクロール領域内の余白を確保
                                 }
+
+                                #region フッター描画（固定表示）
+                                DrawMainFooter(); // IMainFunction のフッター（ボタン等）
+                                DrawFooter();     // ウィンドウ共通のフッター（ステータスバー等）
+                                #endregion
                         }
                 }
 		#endregion
@@ -186,6 +189,22 @@ namespace NotionImporter {
 					using (new EditorGUILayout.HorizontalScope()) {
 						EditorGUILayout.LabelField(message, EditorStyles.boldLabel); // 描画不能時はステータス領域にエラーを表示
 					}
+				});
+		}
+
+		/// <summary>機能ごとのフッター（実行ボタン等）を描画します。</summary>
+		private void DrawMainFooter() {
+			if(m_connector?.IsConnected != true) {
+				return;
+			}
+
+			DrawBlockWithErrorHandling(
+				"メインフッター",
+				() => {
+					m_functions[0].DrawFooter();
+				},
+				message => {
+					EditorGUILayout.HelpBox(message, MessageType.Error);
 				});
 		}
 

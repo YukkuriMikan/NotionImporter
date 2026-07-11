@@ -92,8 +92,6 @@ namespace NotionImporter.Functions {
 
                                         subFunctions[m_selectedSubFunctionIndex].DrawFunction(m_settings); // サブ機能の描画を実行
                                 }
-
-				DrawFooter();
 			} else {
 				EditorGUILayout.LabelField("Notionに接続出来ませんでした");
 			}
@@ -191,7 +189,11 @@ namespace NotionImporter.Functions {
 		}
 
 		/// <summary>インポート定義作成ボタンを描画します。</summary>
-		private void DrawFooter() {
+		public void DrawFooter() {
+                        if(m_settings == null || !m_settings.connectionSucceed) {
+                                return;
+                        }
+
 			if(GUILayout.Button("インポート定義作成")) { // 定義作成処理のトリガーボタン
 				SubFunctions[m_selectedSubFunctionIndex].CreateFile(); // リフレクションで取得した機能を実行
 			}
