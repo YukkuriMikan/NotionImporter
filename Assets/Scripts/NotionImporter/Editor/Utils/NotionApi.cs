@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Networking;
@@ -18,7 +19,34 @@ namespace NotionImporter {
 
 		private const string NOTION_API_URL = "https://api.notion.com/v1/{0}"; // Notion APIのベースURL
 
+		private const long TOO_MANY_REQUESTS = 429; // レート制限時のHTTPステータスコード
+
+		private const float DEFAULT_RETRY_AFTER = 1f; // Retry-Afterヘッダが無い場合の待機秒数
+
+		private const float RETRY_AFTER_MARGIN = 1f; // Retry-Afterに追加する余裕秒数
+
 		private static Dictionary<string, string> m_apiCache = new(); // APIレスポンスのキャッシュ
+
+		/// <summary>レート制限(429)かどうかを判定する</summary>
+		/// <param name="req">対象のリクエスト</param>
+		/// <returns>429ならTrue</returns>
+		private static bool IsTooManyRequests(UnityWebRequest req) {
+			return req != null && req.responseCode == TOO_MANY_REQUESTS; // ステータスコードで判定
+		}
+
+		/// <summary>Retry-Afterヘッダから待機すべきミリ秒数を取得する</summary>
+		/// <param name="req">対象のリクエスト</param>
+		/// <returns>待機ミリ秒数(Retry-After+余裕秒数)</returns>
+		private static int GetRetryAfterMilliseconds(UnityWebRequest req) {
+			var retryAfterSec = DEFAULT_RETRY_AFTER;
+			var header = req?.GetResponseHeader("Retry-After"); // Notionが返す待機時間(秒)
+
+			if(!string.IsNullOrEmpty(header) && float.TryParse(header, out var parsed) && parsed > 0f) {
+				retryAfterSec = parsed;
+			}
+
+			return (int)((retryAfterSec + RETRY_AFTER_MARGIN) * 1000f); // 指定時間+1秒待つ
+		}
 
 		/// <summary>NotionAPI用にリクエストヘッダ等を構成する</summary>
 		/// <param name="req"></param>
@@ -47,36 +75,51 @@ namespace NotionImporter {
 				return m_apiCache[apiKey + method + postData];
 			}
 
-			using var req = UnityWebRequest.PostWwwForm(string.Format(NOTION_API_URL, method), "POST");
+			for(var retryCount = 0; retryCount <= MAX_RETRY_COUNT; retryCount++) {
+				var req = UnityWebRequest.PostWwwForm(string.Format(NOTION_API_URL, method), "POST");
 
-			SetNotionRequestParams(apiKey, req, postData);
+				SetNotionRequestParams(apiKey, req, postData);
 
-			try {
-				var task = req.SendWebRequest(); // リクエストを送信してタイムアウトを監視
-				var timeOutWatcher = new Stopwatch();
+				try {
+					var task = req.SendWebRequest(); // リクエストを送信してタイムアウトを監視
+					var timeOutWatcher = new Stopwatch();
 
-				timeOutWatcher.Start();
+					timeOutWatcher.Start();
 
-				while (!task.isDone) {
-					if(timeOutWatcher.Elapsed.Seconds > TIME_OUT) {
-						throw new TimeoutException();
+					while (!task.isDone) {
+						if(timeOutWatcher.Elapsed.Seconds > TIME_OUT) {
+							throw new TimeoutException();
+						}
 					}
+
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待って再送
+						var waitMs = GetRetryAfterMilliseconds(req);
+
+						Debug.LogWarning($"Post: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
+						Thread.Sleep(waitMs);
+
+						continue;
+					}
+
+					Debug.Log($"Post: {method} succeed.");
+
+					var resultStr = req.downloadHandler.text;
+
+					m_apiCache.TryAdd(apiKey + method + postData, resultStr); // レスポンスをキャッシュに保存
+
+					return resultStr;
+				} catch (Exception ex) {
+					Debug.LogError("NotionAPIのリクエストがタイムアウトしました。" + Environment.NewLine + ex.Message);
+
+					return null;
+				} finally {
+					req.Dispose();
 				}
-
-				Debug.Log($"Post: {method} succeed.");
-
-				var resultStr = req.downloadHandler.text;
-
-				m_apiCache.TryAdd(apiKey + method + postData, resultStr); // レスポンスをキャッシュに保存
-
-				return resultStr;
-			} catch (Exception ex) {
-				Debug.LogError("NotionAPIのリクエストがタイムアウトしました。" + Environment.NewLine + ex.Message);
-
-				return null;
-			} finally {
-				req.Dispose();
 			}
+
+			Debug.LogError($"リトライ回数が設定値{MAX_RETRY_COUNT}を超えました");
+
+			return null;
 		}
 
 		/// <summary>NotionAPIにPOSTする</summary>
@@ -97,9 +140,9 @@ namespace NotionImporter {
 					throw new HttpRequestException($"リトライ回数が設定値{MAX_RETRY_COUNT}を超えました");
 				}
 
-				try {
-					using var req = UnityWebRequest.PostWwwForm(string.Format(NOTION_API_URL, method), "POST");
+				using var req = UnityWebRequest.PostWwwForm(string.Format(NOTION_API_URL, method), "POST");
 
+				try {
 					SetNotionRequestParams(apiKey, req, postData);
 					result = await req.SendWebRequest();
 
@@ -112,6 +155,17 @@ namespace NotionImporter {
 					return resultStr;
 				} catch (Exception ex) {
 					retryCount++;
+					result = null;
+
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待ってからリトライ
+						var waitMs = GetRetryAfterMilliseconds(req);
+
+						Debug.LogWarning($"Post: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
+						await Task.Delay(waitMs);
+
+						continue;
+					}
+
 					Debug.LogError(ex);
 				}
 			}
@@ -128,34 +182,49 @@ namespace NotionImporter {
 				return m_apiCache[apiKey + method];
 			}
 
-			using var req = UnityWebRequest.Get(string.Format(NOTION_API_URL, method));
+			for(var retryCount = 0; retryCount <= MAX_RETRY_COUNT; retryCount++) {
+				var req = UnityWebRequest.Get(string.Format(NOTION_API_URL, method));
 
-			SetNotionRequestParams(apiKey, req, null);
+				SetNotionRequestParams(apiKey, req, null);
 
-			try {
-				var task = req.SendWebRequest(); // リクエスト送信とタイムアウト監視
-				var timeOutWatcher = new Stopwatch();
+				try {
+					var task = req.SendWebRequest(); // リクエスト送信とタイムアウト監視
+					var timeOutWatcher = new Stopwatch();
 
-				timeOutWatcher.Start();
+					timeOutWatcher.Start();
 
-				while (!task.isDone) {
-					if(timeOutWatcher.Elapsed.Seconds > TIME_OUT) {
-						throw new TimeoutException();
+					while (!task.isDone) {
+						if(timeOutWatcher.Elapsed.Seconds > TIME_OUT) {
+							throw new TimeoutException();
+						}
 					}
+
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待って再送
+						var waitMs = GetRetryAfterMilliseconds(req);
+
+						Debug.LogWarning($"Get: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
+						Thread.Sleep(waitMs);
+
+						continue;
+					}
+
+					var resultStr = req.downloadHandler.text;
+
+					m_apiCache.TryAdd(apiKey + method, resultStr); // レスポンスをキャッシュに保存
+
+					return resultStr;
+				} catch (Exception ex) {
+					Debug.LogError("NotionAPIのリクエストがタイムアウトしました。" + Environment.NewLine + ex.Message);
+
+					return null;
+				} finally {
+					req.Dispose();
 				}
-
-				var resultStr = req.downloadHandler.text;
-
-				m_apiCache.TryAdd(apiKey + method, resultStr); // レスポンスをキャッシュに保存
-
-				return resultStr;
-			} catch (Exception ex) {
-				Debug.LogError("NotionAPIのリクエストがタイムアウトしました。" + Environment.NewLine + ex.Message);
-
-				return null;
-			} finally {
-				req.Dispose();
 			}
+
+			Debug.LogError($"リトライ回数が設定値{MAX_RETRY_COUNT}を超えました");
+
+			return null;
 		}
 
 		/// <summary>NotionAPIにGETする</summary>
@@ -175,9 +244,9 @@ namespace NotionImporter {
 					throw new HttpRequestException($"リトライ回数が設定値{MAX_RETRY_COUNT}を超えました");
 				}
 
-				try {
-					using var req = UnityWebRequest.Get(string.Format(NOTION_API_URL, method));
+				using var req = UnityWebRequest.Get(string.Format(NOTION_API_URL, method));
 
+				try {
 					SetNotionRequestParams(apiKey, req, null);
 					result = await req.SendWebRequest();
 
@@ -187,9 +256,21 @@ namespace NotionImporter {
 
 					m_apiCache.TryAdd(apiKey + method, resultStr); // レスポンスをキャッシュ
 
-					return result.downloadHandler.text;
+					return resultStr;
 				} catch (Exception ex) {
 					retryCount++;
+					result = null;
+
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待ってからリトライ
+						var waitMs = GetRetryAfterMilliseconds(req);
+
+						Debug.LogWarning($"Get: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
+						await Task.Delay(waitMs);
+
+						Debug.LogError(ex);
+
+						continue;
+					}
 
 					await Task.Delay(1000);
 
