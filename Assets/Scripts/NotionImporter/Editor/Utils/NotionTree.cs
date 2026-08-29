@@ -6,7 +6,7 @@ using UnityEngine;
 namespace NotionImporter {
 
 	/// <summary>NotionオブジェクトをTreeViewで表示します。</summary>
-	public class NotionTree : TreeView {
+	public class NotionTree : TreeView<int> {
 
 		private NotionObject[] m_notionObjects; // 表示対象のNotionオブジェクト一覧
 
@@ -25,10 +25,10 @@ namespace NotionImporter {
 		}
 
 		/// <summary>シンプルなヘッダー構成で初期化します。</summary>
-		public NotionTree(TreeViewState state) : base(state) { }
+		public NotionTree(TreeViewState<int> state) : base(state) { }
 
 		/// <summary>複数列ヘッダー付きで初期化します。</summary>
-		public NotionTree(TreeViewState state, MultiColumnHeader multiColumnHeader) : base(state, multiColumnHeader) { }
+		public NotionTree(TreeViewState<int> state, MultiColumnHeader multiColumnHeader) : base(state, multiColumnHeader) { }
 
 		/// <summary>TreeViewに表示するデータを設定します。</summary>
 		public void Initialize(NotionObject[] objects) {
@@ -38,8 +38,8 @@ namespace NotionImporter {
 		}
 
 		/// <summary>ルートノードを生成します。</summary>
-		protected override TreeViewItem BuildRoot() {
-			var treeRoot = new TreeViewItem(id: 0, depth: -1, displayName: "Notionオブジェクト");
+		protected override TreeViewItem<int> BuildRoot() {
+			var treeRoot = new TreeViewItem<int>(id: 0, depth: -1, displayName: "Notionオブジェクト");
 			var rootObjs = m_notionObjects.Where(obj => obj.parent == null);
 
 			foreach (var obj in rootObjs) {
@@ -57,7 +57,7 @@ namespace NotionImporter {
 		}
 
 		/// <summary>子ノードを再帰的に追加します。</summary>
-		private void AddChildrenRecursive(NotionObject parentObj, TreeViewItem parentItem) {
+		private void AddChildrenRecursive(NotionObject parentObj, TreeViewItem<int> parentItem) {
 			var children = m_notionObjects.Where(obj => obj.parent?.Id == parentObj.id);
 
 			foreach (var child in children) {
@@ -69,8 +69,7 @@ namespace NotionImporter {
 		}
 
 		/// <summary>NotionオブジェクトをTreeViewItemに変換します。</summary>
-		private TreeViewItem CreateTreeViewItem(NotionObject obj) => new() {
-			id = obj.id.GetHashCode(),
+		private TreeViewItem<int> CreateTreeViewItem(NotionObject obj) => new(obj.id.GetHashCode()) {
 			displayName = obj.MainTitle
 		}; // オブジェクトIDをハッシュ化してツリー項目を生成
 

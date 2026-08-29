@@ -45,7 +45,7 @@ namespace NotionImporter.Functions {
                         }
                 }
 
-		private TreeViewState m_treeViewState; // ツリービューの状態
+		private TreeViewState<int> m_treeViewState; // ツリービューの状態
 
 		private NotionTree m_notionTree; // 表示中のNotionツリー
 
@@ -117,7 +117,7 @@ namespace NotionImporter.Functions {
 
                                 if(m_notionTree == null) {
                                         if(m_treeViewState == null) {
-                                                m_treeViewState = new TreeViewState();
+                                                m_treeViewState = new TreeViewState<int>();
                                         }
 
                                         m_notionTree = new NotionTree(m_treeViewState);

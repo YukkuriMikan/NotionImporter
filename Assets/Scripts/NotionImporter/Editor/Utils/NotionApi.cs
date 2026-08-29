@@ -17,15 +17,69 @@ namespace NotionImporter {
 
 		private const float TIME_OUT = 10f; // 接続のタイムアウト秒数
 
+		// Notion APIの上限は接続ごとに平均3リクエスト/秒。
+		// タイマー精度による超過を避けるため、わずかに余裕を持たせて約2.86リクエスト/秒に抑える。
+		private const int REQUEST_INTERVAL_MILLISECONDS = 350;
+
 		private const string NOTION_API_URL = "https://api.notion.com/v1/{0}"; // Notion APIのベースURL
 
 		private const long TOO_MANY_REQUESTS = 429; // レート制限時のHTTPステータスコード
 
-		private const float DEFAULT_RETRY_AFTER = 1f; // Retry-Afterヘッダが無い場合の待機秒数
+		private const int DEFAULT_RETRY_AFTER_MILLISECONDS = 1000; // Retry-Afterヘッダが無い場合の待機時間
 
-		private const float RETRY_AFTER_MARGIN = 1f; // Retry-Afterに追加する余裕秒数
+		private const int RETRY_AFTER_MARGIN_MILLISECONDS = 100; // 境界直前の再送を避けるための余裕時間
 
 		private static Dictionary<string, string> m_apiCache = new(); // APIレスポンスのキャッシュ
+
+		private static readonly object m_rateLimitLock = new(); // 同時呼び出し時も送信間隔を守るためのロック
+
+		private static DateTime m_nextRequestUtc = DateTime.MinValue; // 次回リクエストを送信できる時刻
+
+		/// <summary>次のリクエスト枠を確保できるか判定する</summary>
+		/// <param name="waitMilliseconds">確保できない場合の待機ミリ秒数</param>
+		/// <returns>送信枠を確保できた場合はTrue</returns>
+		private static bool TryAcquireRequestSlot(out int waitMilliseconds) {
+			lock (m_rateLimitLock) {
+				var now = DateTime.UtcNow;
+
+				if(now >= m_nextRequestUtc) {
+					m_nextRequestUtc = now.AddMilliseconds(REQUEST_INTERVAL_MILLISECONDS);
+					waitMilliseconds = 0;
+
+					return true;
+				}
+
+				waitMilliseconds = Math.Max(1, (int)Math.Ceiling((m_nextRequestUtc - now).TotalMilliseconds));
+
+				return false;
+			}
+		}
+
+		/// <summary>Notionの推奨頻度を超えない送信枠まで同期的に待機する</summary>
+		private static void WaitForRequestSlot() {
+			while (!TryAcquireRequestSlot(out var waitMilliseconds)) {
+				Thread.Sleep(waitMilliseconds);
+			}
+		}
+
+		/// <summary>Notionの推奨頻度を超えない送信枠まで非同期に待機する</summary>
+		private static async UniTask WaitForRequestSlotAsync() {
+			while (!TryAcquireRequestSlot(out var waitMilliseconds)) {
+				await Task.Delay(waitMilliseconds);
+			}
+		}
+
+		/// <summary>429応答で指定された時刻まで、後続を含む全リクエストを停止する</summary>
+		/// <param name="waitMilliseconds">待機ミリ秒数</param>
+		private static void ApplyRateLimitBackoff(int waitMilliseconds) {
+			lock (m_rateLimitLock) {
+				var retryAt = DateTime.UtcNow.AddMilliseconds(waitMilliseconds);
+
+				if(retryAt > m_nextRequestUtc) {
+					m_nextRequestUtc = retryAt;
+				}
+			}
+		}
 
 		/// <summary>レート制限(429)かどうかを判定する</summary>
 		/// <param name="req">対象のリクエスト</param>
@@ -36,16 +90,17 @@ namespace NotionImporter {
 
 		/// <summary>Retry-Afterヘッダから待機すべきミリ秒数を取得する</summary>
 		/// <param name="req">対象のリクエスト</param>
-		/// <returns>待機ミリ秒数(Retry-After+余裕秒数)</returns>
+		/// <returns>待機ミリ秒数(Retry-After+余裕時間)</returns>
 		private static int GetRetryAfterMilliseconds(UnityWebRequest req) {
-			var retryAfterSec = DEFAULT_RETRY_AFTER;
 			var header = req?.GetResponseHeader("Retry-After"); // Notionが返す待機時間(秒)
 
-			if(!string.IsNullOrEmpty(header) && float.TryParse(header, out var parsed) && parsed > 0f) {
-				retryAfterSec = parsed;
+			if(!string.IsNullOrEmpty(header) && int.TryParse(header, out var retryAfterSeconds) && retryAfterSeconds >= 0) {
+				var waitMilliseconds = (long)retryAfterSeconds * 1000 + RETRY_AFTER_MARGIN_MILLISECONDS;
+
+				return (int)Math.Min(waitMilliseconds, int.MaxValue);
 			}
 
-			return (int)((retryAfterSec + RETRY_AFTER_MARGIN) * 1000f); // 指定時間+1秒待つ
+			return DEFAULT_RETRY_AFTER_MILLISECONDS + RETRY_AFTER_MARGIN_MILLISECONDS;
 		}
 
 		/// <summary>NotionAPI用にリクエストヘッダ等を構成する</summary>
@@ -81,6 +136,8 @@ namespace NotionImporter {
 				SetNotionRequestParams(apiKey, req, postData);
 
 				try {
+					WaitForRequestSlot();
+
 					var task = req.SendWebRequest(); // リクエストを送信してタイムアウトを監視
 					var timeOutWatcher = new Stopwatch();
 
@@ -92,11 +149,11 @@ namespace NotionImporter {
 						}
 					}
 
-					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待って再送
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-Afterに従って再送
 						var waitMs = GetRetryAfterMilliseconds(req);
 
+						ApplyRateLimitBackoff(waitMs);
 						Debug.LogWarning($"Post: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
-						Thread.Sleep(waitMs);
 
 						continue;
 					}
@@ -144,6 +201,7 @@ namespace NotionImporter {
 
 				try {
 					SetNotionRequestParams(apiKey, req, postData);
+					await WaitForRequestSlotAsync();
 					result = await req.SendWebRequest();
 
 					Debug.Log($"Post: {method} succeed.");
@@ -157,11 +215,11 @@ namespace NotionImporter {
 					retryCount++;
 					result = null;
 
-					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待ってからリトライ
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-Afterに従ってリトライ
 						var waitMs = GetRetryAfterMilliseconds(req);
 
+						ApplyRateLimitBackoff(waitMs);
 						Debug.LogWarning($"Post: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
-						await Task.Delay(waitMs);
 
 						continue;
 					}
@@ -188,6 +246,8 @@ namespace NotionImporter {
 				SetNotionRequestParams(apiKey, req, null);
 
 				try {
+					WaitForRequestSlot();
+
 					var task = req.SendWebRequest(); // リクエスト送信とタイムアウト監視
 					var timeOutWatcher = new Stopwatch();
 
@@ -199,11 +259,11 @@ namespace NotionImporter {
 						}
 					}
 
-					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待って再送
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-Afterに従って再送
 						var waitMs = GetRetryAfterMilliseconds(req);
 
+						ApplyRateLimitBackoff(waitMs);
 						Debug.LogWarning($"Get: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
-						Thread.Sleep(waitMs);
 
 						continue;
 					}
@@ -248,6 +308,7 @@ namespace NotionImporter {
 
 				try {
 					SetNotionRequestParams(apiKey, req, null);
+					await WaitForRequestSlotAsync();
 					result = await req.SendWebRequest();
 
 					Debug.Log($"Get: {method} succeed.");
@@ -261,11 +322,11 @@ namespace NotionImporter {
 					retryCount++;
 					result = null;
 
-					if(IsTooManyRequests(req)) { // レート制限時はRetry-After+1秒待ってからリトライ
+					if(IsTooManyRequests(req)) { // レート制限時はRetry-Afterに従ってリトライ
 						var waitMs = GetRetryAfterMilliseconds(req);
 
+						ApplyRateLimitBackoff(waitMs);
 						Debug.LogWarning($"Get: {method} はレート制限(429)されました。{waitMs / 1000f}秒待機してリトライします。");
-						await Task.Delay(waitMs);
 
 						Debug.LogError(ex);
 
